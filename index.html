@@ -86,6 +86,24 @@ p{margin:0}
 .avs .av+.av{margin-left:-8px}
 .av svg.p{display:block;width:100%;height:100%;border-radius:50%}
 .av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.disc{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:640px){.disc{grid-template-columns:repeat(3,1fr);gap:14px}}
+@media(min-width:900px){.disc{grid-template-columns:repeat(4,1fr)}}
+.dtile{position:relative;aspect-ratio:9/15;border-radius:18px;overflow:hidden;color:#fff;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;padding:12px;--h:200;
+  background:radial-gradient(120% 90% at 15% 100%,hsl(var(--h) 70% 45% / .6),transparent 60%),radial-gradient(90% 80% at 90% 0%,hsl(calc(var(--h) + 40) 60% 50% / .4),transparent 60%),linear-gradient(170deg,#101816,#1B2622);border:1px solid var(--line)}
+.dtile .tvid{z-index:0}
+.dtile::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82),rgba(0,0,0,.05) 55%,rgba(0,0,0,.35));z-index:1;pointer-events:none}
+.dtile>*{position:relative;z-index:2}
+.dtile .dtop{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:6px;z-index:2}
+.dtile .dface{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:34%;aspect-ratio:1;z-index:2;opacity:.95}
+.dtile .dface .av,.dtile .dface .av img{width:100%!important;height:100%!important}
+.dtile.hasv .dface{display:none}
+.dtile .dn{font-family:var(--f-display);font-weight:800;font-size:19px;line-height:1.05}
+.dtile .ds{font-size:12px;opacity:.9;margin-top:3px}
+.dtile .dm{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.dtile .dm .tag{font-size:10.5px;padding:3px 7px}
+.dtile .dplay{position:absolute;right:10px;bottom:12px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.92);color:#101816;display:grid;place-items:center;z-index:2}
+.igframe{width:100%;height:68vh;border:0;border-radius:14px;background:#fff}
 .sbub-row{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
 .sbub-row::-webkit-scrollbar{display:none}
 .sbub{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:70px;color:var(--ink);font-size:12px;font-weight:600}
@@ -390,7 +408,7 @@ const S={
   sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
-  auth:{user:null,status:'idle',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[]}},
+  auth:{user:null,status:'idle',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[],instagram:''}},
   requests:[
     {id:'q1',name:'Naa A.',age:23,shows:97,rating:4.9,vibes:['Dinner','Chill','Music'],friend:{name:'Esi',gender:'Woman',age:24},status:'new'},
     {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
@@ -467,6 +485,21 @@ function cardHTML(h){
     <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>
   </div></article>`;
 }
+function tileHTML(h){
+  const ph=h.crew&&h.crew[0]&&h.crew[0][4];
+  const face=ph?`<img class="p" src="${esc(ph)}" alt="">`:av(h.name,60,false);
+  const act=(h.real&&!hasVlog(h))?'open':'vlog';
+  const n=h.crew.length;
+  return `<button class="dtile${h.vlogThumb?' hasv':''}" style="--h:${hue(h.name)}" data-act="${act}" data-id="${h.id}" aria-label="${act==='vlog'?'Watch':'Open'} ${esc(h.name)}'s plan">
+  ${h.vlogThumb?`<video class="tvid" muted playsinline preload="metadata" src="${esc(h.vlogThumb)}#t=0.5" aria-hidden="true"></video>`:''}
+  <div class="dtop">${h.real?'<span class="tag" style="background:var(--good);color:var(--bg)">Live</span>':'<span class="tag">Sample</span>'}<span class="tag crew">${ic('users',12)}${n===1?'Solo':n}</span></div>
+  <span class="dface">${face}</span>
+  <div class="dn">${esc(h.name)}</div>
+  <div class="ds">${esc(h.color)} ${esc(h.car)} · leaving ${esc(h.leaving)}</div>
+  <div class="dm">${fitTag(h)}${h.ig?'<span class="tag">Instagram</span>':''}</div>
+  ${(h.real?hasVlog(h):true)?`<span class="dplay" aria-hidden="true">${ic('play',14)}</span>`:''}
+  </button>`;
+}
 function seenGet(){try{return JSON.parse(localStorage.getItem('pu_seen')||'{}');}catch(e){return {};}}
 function seenSet(id){S.seen=S.seen||seenGet();S.seen[id]=1;try{localStorage.setItem('pu_seen',JSON.stringify(S.seen));}catch(e){}}
 function storyList(){
@@ -486,8 +519,8 @@ function viewTonight(){
   const real=S.live.filter(keep).sort(byFit),sample=hosts.filter(keep).sort(byFit);
   const feedHTML=(SB&&!S.auth.user?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in to see live plans from real hosts.</span><button class="btn sm" data-act="tab" data-v="safety">Sign in</button></div>`:'')
     +(SB&&S.auth.user&&!real.length?`<p class="note">${S.liveErr?'Live plans need the step 3 database setup. ('+esc(S.liveErr)+')':'No live plans yet. Switch to Hosting and post yours.'}</p>`:'')
-    +(real.length?`<h2>Live now</h2><div class="feed">${real.map(cardHTML).join('')}</div>`:'')
-    +(sample.length?`${SB?'<h2>Sample plans</h2>':''}<div class="feed">${sample.map(cardHTML).join('')}</div>`:(real.length?'':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'));
+    +(real.length?`<h2>Live now</h2><div class="disc">${real.map(tileHTML).join('')}</div>`:'')
+    +(sample.length?`${SB?'<h2>Sample plans</h2>':''}<div class="disc">${sample.map(tileHTML).join('')}</div>`:(real.length?'':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'));
   const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
   return `<div class="hero"><span class="eyebrow">Tonight near you</span><h1>The event's over. Pick your ride.</h1><p class="muted">You choose who you move with. Hosts can't message you first.</p></div>
   ${storiesRow()}
@@ -541,6 +574,8 @@ function profilePanel(){
     <label class="fld" for="au-name">First name<input class="inp" id="au-name" data-pf="first_name" value="${esc(f.first_name)}" maxlength="40"></label>
     <div class="two"><label class="fld" for="au-age">Age (18 or older)<input class="inp" id="au-age" type="number" min="18" max="99" data-pf="age" value="${esc(f.age)}"></label>
     <div><div class="eyebrow" style="margin-bottom:6px">Gender</div><div class="chips">${['Woman','Man'].map(g=>`<button class="chip" data-act="pfgender" data-v="${g}" aria-pressed="${f.gender===g}">${g}</button>`).join('')}</div></div></div>
+    <label class="fld" for="au-ig">Instagram (optional)<input class="inp" id="au-ig" data-pf="instagram" value="${esc(f.instagram||'')}" maxlength="30" placeholder="yourhandle" autocapitalize="none" autocomplete="off"></label>
+    <p class="note" style="margin-top:-6px">Riders can scroll your public Instagram inside Pull Up. Leave it empty to keep it private.</p>
     <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div>${vibeChips(f.vibes,'pfvibe')}</div>
     ${A.err?`<p class="note" style="color:var(--bad)">${esc(A.err)}</p>`:''}
     <button class="btn" data-act="pfsave" ${A.saving?'disabled':''}>${A.saving?'Saving…':'Save profile'}</button>
@@ -696,6 +731,15 @@ function clock(){const d=new Date();return String(d.getHours()).padStart(2,'0')+
 function logT(m,k){S.trip.log.push({t:clock(),m,k});}
 
 /* ---------- sheets ---------- */
+const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
+const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ${cls||'ghost'}" data-act="ig" data-id="${h.id}">View ${esc(h.name)}'s Instagram</button>`:'';
+function sheetIg(){
+  const h=hostById(S.igView.id);if(!h||!igOk(h.ig))return `<p class="muted">No Instagram added.</p><button class="btn" data-act="close">Close</button>`;
+  return `<div class="sheet-h"><div><span class="eyebrow">Instagram</span><h2>@${esc(h.ig)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <iframe class="igframe" title="Instagram profile of ${esc(h.name)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(h.ig)}/embed"></iframe>
+  <p class="note">This is ${esc(h.name)}'s own public Instagram. Private accounts do not show here. If nothing loads, Instagram may be blocking the preview in your browser.</p>
+  <a class="btn ghost" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(h.ig)}/" target="_blank" rel="noopener noreferrer">Open in Instagram</a>`;
+}
 function sheetDetail(){
   const h=hostById(S.draft.id),D=S.draft,F=D.friend,L=legsFor(h,D.house),ev=EVENTS[h.event],first=h.name.split(' ')[0];
   const pts=L.stops.map(s=>s.pos),box=boxFor(pts,1.6,44,200);
@@ -739,6 +783,7 @@ function sheetDetail(){
     ${D.friendOn&&F.name.trim()?`<div class="crewline">${av(F.name,44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name)}, ${esc(F.age)}</b><div class="note">${F.gender} · your friend</div></div></div>`:''}
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
+  ${igBtn(h)}
   <button class="btn" data-act="request" ${block?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>
   <p class="note">Nothing starts until you confirm and both sides pass the pickup photo check.</p>`;
 }
@@ -750,7 +795,7 @@ function sheetVlog(){
     const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}</span></div>`;
     const inner=V.loading?'<div class="msg"><p>Loading…</p></div>':V.err?`<div class="msg"><p>${esc(V.err)}</p></div>`:V.url?`<video id="storyVid" playsinline autoplay src="${esc(V.url)}"></video>`:`<div class="msg"><p>${esc(h.name)} has not added a vlog yet.</p></div>`;
     return `<div class="story"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button>
-    <div class="sfoot"><button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
+    <div class="sfoot">${igBtn(h,'ghost')}<button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
   }
   if(false){
     const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="auto" src="${esc(V.url)}#t=0.1"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
@@ -808,7 +853,7 @@ function sheetDone(){
 function renderSheet(){
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
-  const T={fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  const T={ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
   if(S.sheet==='vlog'&&(()=>{const h=hostById(S.vlog.id);return h&&(h.real||h.vlogLocal);})()){
     root.innerHTML=`<div class="scrim" style="padding:0;align-items:stretch" data-act="noop">${T.vlog()}</div>`;S._sheetKept=S.sheet;
     const v=document.getElementById('storyVid'),bar=document.getElementById('storyBar');
@@ -904,6 +949,7 @@ function act(a,el,ev){
         }).catch(()=>{S.vlog.loading=false;S.vlog.err='Could not load the vlog.';if(S.sheet==='vlog')renderSheet();});
       }
       break;}
+    case 'ig':S.igView={id};openSheet('ig');break;
     case 'vrestart':{const v=document.getElementById('storyVid');if(v){v.currentTime=0;v.play().catch(()=>{});}break;}
     case 'vopen':{const h=hostById(id);if(h){S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'noop':break;
@@ -912,7 +958,7 @@ function act(a,el,ev){
     case 'close':closeSheet();break;
     case 'ausend':authSend();break;
     case 'auout':authOut();break;
-    case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice()};S.auth.editing=true;S.auth.err='';renderView();break;}
+    case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice(),instagram:m.instagram||''};S.auth.editing=true;S.auth.err='';renderView();break;}
     case 'pfcancel':S.auth.editing=false;S.auth.err='';S.auth.file=null;S.auth.preview='';renderView();break;
     case 'pfgender':S.auth.form.gender=v;renderView();break;
     case 'pfvibe':{const a=S.auth.form.vibes,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
@@ -1014,14 +1060,16 @@ function planToHost(p,photo){
   return {id:'p_'+p.id,planId:p.id,real:true,mine,name:hn,rating:0,trips:0,car:p.car,color:p.color,plate:null,event:p.event,parkDesc:p.park_desc,parkM:p.park_m||100,
     crew:[[hn,'Driver',p.host.gender,p.host.age,photo||null],...friends],seats:p.seats,friendsOk:p.friends_ok,friendPref:p.friend_pref,rules:(p.rules&&p.rules.length)?p.rules:['Sober driver'],
     v:VENUES[p.next_venue]?p.next_venue:0,house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
-    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,verified:false};
+    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,ig:p.host.instagram||null,verified:false};
 }
 let liveBusy=false;
 async function loadLive(){
   if(!SB||!S.auth.user||liveBusy)return;
   liveBusy=true;
   try{
-    const r=await SB.from('plans').select('*, host:profiles!plans_host_id_fkey(first_name,age,gender,photo_path)').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
+    const q=cols=>SB.from('plans').select('*, host:profiles!plans_host_id_fkey('+cols+')').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
+    let r=await q('first_name,age,gender,photo_path,instagram');
+    if(r.error&&/instagram/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path');
     if(r.error){S.liveErr=r.error.message||'error';S.live=[];}
     else{
       S.liveErr='';
@@ -1116,7 +1164,7 @@ async function authSend(){
 async function authOut(){
   await SB.auth.signOut();
   const A=S.auth;A.user=null;A.profile=null;A.editing=false;A.status='idle';A.file=null;A.preview='';A.err='';
-  A.form={first_name:'',age:'',gender:'Woman',vibes:[]};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};renderAll();
+  A.form={first_name:'',age:'',gender:'Woman',vibes:[],instagram:''};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};renderAll();
 }
 async function loadProfile(){
   const A=S.auth;if(!A.user)return;
@@ -1127,7 +1175,7 @@ async function loadProfile(){
     let url='';
     if(data.photo_path){const r=await SB.storage.from('avatars').createSignedUrl(data.photo_path,3600);url=(r&&r.data&&r.data.signedUrl)||'';}
     S.me={name:data.first_name,age:data.age,gender:data.gender,vibes:data.vibes||[],photo:url,real:true,shows:null};
-    A.form={first_name:data.first_name,age:String(data.age),gender:data.gender,vibes:(data.vibes||[]).slice()};
+    A.form={first_name:data.first_name,age:String(data.age),gender:data.gender,vibes:(data.vibes||[]).slice(),instagram:data.instagram||''};
     A.editing=false;
   }else{A.editing=true;S.tab='safety';S.role='rider';}
   renderAll();
@@ -1149,8 +1197,15 @@ async function saveProfile(){
       const up=await SB.storage.from('avatars').upload(path,A.file,{upsert:true,contentType:A.file.type});
       if(up.error)throw up.error;
     }
-    const {error}=await SB.from('profiles').upsert({id:A.user.id,first_name:f.first_name.trim(),age,gender:f.gender,vibes:f.vibes,photo_path:path,updated_at:new Date().toISOString()});
-    if(error)throw error;
+    const ig=(f.instagram||'').trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
+    if(ig&&!igOk(ig))throw new Error('That Instagram name looks wrong. Use letters, numbers, dots and underscores only.');
+    const row={id:A.user.id,first_name:f.first_name.trim(),age,gender:f.gender,vibes:f.vibes,photo_path:path,updated_at:new Date().toISOString()};
+    let res=await SB.from('profiles').upsert({...row,instagram:ig||null});
+    if(res.error&&/instagram/i.test(res.error.message||'')){
+      if(ig)throw new Error('Instagram needs the step 5 database update first. Run supabase-step5-instagram.sql in Supabase.');
+      res=await SB.from('profiles').upsert(row);
+    }
+    if(res.error)throw res.error;
     A.file=null;A.preview='';
     A.saving=false;await loadProfile();toast('Profile saved');return;
   }catch(e){A.err=(e&&e.message)||'Could not save. Try again.';}
