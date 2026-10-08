@@ -86,6 +86,7 @@ p{margin:0}
 .avs .av+.av{margin-left:-8px}
 .av svg.p{display:block;width:100%;height:100%;border-radius:50%}
 .av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.vplayer{display:block;width:100%;max-height:62vh;border-radius:16px;background:#000}
 .av img.p{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .tag.fit{background:var(--good);color:var(--bg)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
@@ -372,7 +373,7 @@ const S={
     {id:'q3',name:'Maame K.',age:25,shows:99,rating:5.0,vibes:['Dinner','Quiet'],friend:{name:'Jay',gender:'Man',age:27},status:'new'}
   ],
   hostDraft:{event:'a',name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
-  posted:null,live:[],liveErr:'',publishing:false,vlog:{id:null,i:0},
+  posted:null,live:[],liveErr:'',publishing:false,vlog:{id:null,i:0,url:'',loading:false,err:''},
   fb:{role:'Rider',use:'Yes',name:'',contact:'',city:'Accra',safe:'',notes:'',sent:false,busy:false,err:''}
 };
 let toastT=null;
@@ -385,6 +386,8 @@ const meAv=z=>S.me.photo?`<span class="av" style="width:${z}px;height:${z}px;bac
 const allHosts=()=>[...S.live,...hosts];
 const hostById=id=>allHosts().find(h=>h.id===id);
 const crewAv=(c,z,ok)=>c[4]?`<span class="av" style="width:${z}px;height:${z}px;background:var(--surface-2)"><img class="p" src="${esc(c[4])}" alt=""></span>`:av(c[0],z,ok);
+const hasVlog=h=>!!(h.vlogLocal||(h.real&&h.vlogPath));
+const playBtn=(h,label)=>h.real||h.vlogLocal?(hasVlog(h)?`<button class="play" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s vlog">${ic('play',14)}${label||'Watch vlog'}</button>`:''):`<button class="play" data-act="vlog" data-id="${h.id}" aria-label="See a sample vlog preview">${ic('play',14)}Sample vlog</button>`;
 const hostBadge=h=>h.real?'<span class="vbadge pending">Photo added · ID check soon</span>':vb(h.verified);
 const crewBadge=(h,c)=>h.real?(c[1]==='Driver'?'<span class="vbadge pending">Photo added</span>':'<span class="vbadge pending">Not verified yet</span>'):vb(true);
 const plateHTML=h=>h.plate?`<span class="plate">${esc(h.plate)}</span>`:'<span class="note">Plate shown after he accepts</span>';
@@ -427,7 +430,7 @@ function cardHTML(h){
     <svg class="car" viewBox="0 0 124 64" aria-hidden="true"><ellipse cx="62" cy="58" rx="54" ry="5" fill="rgba(0,0,0,.35)"/><path d="M10 46C10 40 14 36 20 35L34 24C37 21 41 20 45 20H80C85 20 89 22 92 25L102 35C110 36 114 40 114 46V52H10Z" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/><circle cx="32" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="92" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="108" cy="42" r="3.2" fill="#FFD27A"/><circle cx="16" cy="42" r="2.6" fill="#ff6a5c"/></svg>
     <div class="tl"><span class="tag">${ic('clock',12)}Leaving ${esc(h.leaving)}</span>${h.real?'<span class="tag" style="background:var(--good);color:var(--bg)">Live</span>':'<span class="tag">Sample</span>'}${fitTag(h)}</div>
     <div class="tr"><span class="tag crew">${ic('users',14)}${h.crew.length===1?'Solo':'Group of '+h.crew.length}</span></div>
-    <button class="play" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s vlog">${ic('play',14)}Vlog 1:12</button>
+    ${playBtn(h)}
   </div>
   <div class="card-body">
     <div class="row"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="name">${esc(h.name)}</span>${hostBadge(h)}</div>
@@ -580,10 +583,12 @@ function viewHost(){
     <div class="toggle"><div><b>Offer my place as an optional last stop</b><div class="note">Riders only see the area. The address unlocks after she confirms.</div></div><button class="sw" role="switch" aria-checked="${d.house}" data-act="hhouse"></button></div>
     <div><div class="eyebrow" style="margin-bottom:8px">Vibe. Riders who match show up first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="hvibe" data-v="${v}" aria-pressed="${d.vibe.includes(v)}">${v}</button>`).join('')}</div></div></section>
   <section class="panel"><h3>Your lifestyle vlog</h3>
-    <label class="fld" for="f-vlog"><span>Upload a short clip</span><input class="inp" id="f-vlog" type="file" accept="video/*" data-f="vlogFile"></label>
-    <p class="note">${d.vlogName?'Selected: '+esc(d.vlogName):'Riders watch this before they choose. Keep it under 60 seconds.'}</p></section>
+    <label class="fld" for="f-vlog"><span>Upload a short clip (up to 60 seconds and 45 MB)</span><input class="inp" id="f-vlog" type="file" accept="video/*" data-f="vlogFile"></label>
+    ${d.vlogPreview?`<video class="vplayer" style="max-height:260px" controls playsinline preload="metadata" src="${esc(d.vlogPreview)}"></video><p class="note">Selected: ${esc(d.vlogName)}</p>`:'<p class="note">Riders watch this before they choose. MP4 works best. Record at a lower quality if the file is too big.</p>'}
+    ${d.vlogWarn?`<p class="note">${esc(d.vlogWarn)}</p>`:''}
+    ${d.vlogErr?`<p class="note" style="color:var(--bad)">${esc(d.vlogErr)}</p>`:''}</section>
   <label class="toggle" style="gap:12px;align-items:flex-start" for="f-ver"><span><b>Everyone in my car has passed the selfie and ID check</b><span class="note" style="display:block">Listings with unverified people are removed.</span></span><input id="f-ver" type="checkbox" data-f="verified" ${d.verified?'checked':''} style="width:22px;height:22px;accent-color:var(--accent);flex:none"></label>
-  <button class="btn" data-act="publish">Publish to tonight's feed</button>
+  <button class="btn" data-act="publish" ${S.publishing?'disabled':''}>${S.publishing?'Posting… a vlog can take a minute':'Publish to tonight\'s feed'}</button>
   ${requestsHTML()}`;
 }
 function personTile(n,g,a,label,me){return `<div class="pp">${me?meAv(56):av(n,56,true)}<b>${esc(n)}</b><span class="note">${g}, ${a}${label?'<br>'+label:''}</span></div>`;}
@@ -673,7 +678,7 @@ function sheetDetail(){
       <div class="crewline">${av(F.name||'Friend',44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name||'Your friend')}</b><div class="note">${F.gender}, ${esc(F.age)} · ${F.verified?'Face matched':F.sent?'Checking her selfie…':'Not verified yet'}</div></div>
       ${F.verified?vb(true):`<button class="btn sm" data-act="dfsend" ${F.sent?'disabled':''}>${F.sent?'Link sent':'Send verify link'}</button>`}</div></div>`:''}`;
   return `<div class="sheet-h"><div><span class="eyebrow">${esc(ev.name)} · leaving ${esc(h.leaving)}</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px"><h2>${esc(h.name)}</h2>${hostBadge(h)}</div></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
-  <div class="thumb" style="--h:${hue(h.name)};border-radius:14px;aspect-ratio:16/6.5"><div class="tl"><span class="tag">${ic('users',12)}${crewLabel(h)}</span></div><button class="play" data-act="vlog" data-id="${h.id}">${ic('play',14)}Watch vlog</button></div>
+  <div class="thumb" style="--h:${hue(h.name)};border-radius:14px;aspect-ratio:16/6.5"><div class="tl"><span class="tag">${ic('users',12)}${crewLabel(h)}</span></div>${playBtn(h)}</div>
   ${fx.length?`<div class="rule">${ic('check',18)}<span>Fits your vibe: ${esc(fx.join(', '))}</span></div>`:''}
   <section class="panel"><div class="row">${plateHTML(h)}<span>${esc(h.color)} ${esc(h.car)}</span></div>
     <div class="row"><span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'} <span class="muted" style="font-weight:400">${h.trips} rides</span></span><span class="note">Parked ${h.parkM} m from the gate</span></div></section>
@@ -698,12 +703,16 @@ function sheetDetail(){
   <p class="note">Nothing starts until you confirm and both sides pass the pickup photo check.</p>`;
 }
 function sheetVlog(){
-  const h=hostById(S.vlog.id),i=S.vlog.i;
-  return `<div class="sheet-h"><div><span class="eyebrow">Vlog preview</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
-  <div class="stories" style="--h:${hue(h.name)}"><div class="bars">${h.vlog.map((_,j)=>`<i class="${j<=i?'on':''}"></i>`).join('')}</div>
+  const h=hostById(S.vlog.id),V=S.vlog,i=V.i;
+  const head=lab=>`<div class="sheet-h"><div><span class="eyebrow">${lab}</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>`;
+  if(h.real||h.vlogLocal){
+    const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="metadata" src="${esc(V.url)}"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
+    return head('Vlog')+body+`<p class="note">If it does not play, the video may be in a format your phone cannot open. MP4 works best.</p><button class="btn" data-act="open" data-id="${h.id}">See the plan</button>`;
+  }
+  return head('Sample vlog preview')+`<div class="stories" style="--h:${hue(h.name)}"><div class="bars">${h.vlog.map((_,j)=>`<i class="${j<=i?'on':''}"></i>`).join('')}</div>
     <button class="tap" style="left:0" data-act="vprev" aria-label="Previous"></button><button class="tap" style="right:0" data-act="vnext" aria-label="Next"></button>
     <div class="cap">${esc(h.vlog[i])}</div><div style="margin-top:8px;font-size:12px;opacity:.85">${esc(h.color)} ${esc(h.car)} · ${esc(h.vibe.join(' · '))}</div></div>
-  <p class="note">Sample preview. Tap the right side to move on. Real hosts upload a short video.</p>
+  <p class="note">This is a sample, so there is no video. Real hosts upload a short clip that you can watch here.</p>
   <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>`;
 }
 function sheetDev(){
@@ -824,7 +833,18 @@ function act(a,el,ev){
     case 'evt':S.event=v;renderView();break;
     case 'grp':S.group=Number(v);renderView();break;
     case 'open':S.draft=newDraft(id);openSheet('detail');break;
-    case 'vlog':S.vlog={id,i:0};openSheet('vlog');break;
+    case 'vlog':{const h=hostById(id);S.vlog={id,i:0,url:h.vlogLocal||'',loading:false,err:''};
+      if(h.real&&h.vlogPath&&SB){S.vlog.loading=true;}
+      openSheet('vlog');
+      if(S.vlog.loading){
+        SB.storage.from('vlogs').createSignedUrl(h.vlogPath,3600).then(r=>{
+          if(S.vlog.id!==id)return;
+          S.vlog.loading=false;
+          if(!r||r.error||!r.data)S.vlog.err='Could not load the vlog. Try again in a moment.';else S.vlog.url=r.data.signedUrl;
+          if(S.sheet==='vlog')renderSheet();
+        }).catch(()=>{S.vlog.loading=false;S.vlog.err='Could not load the vlog.';if(S.sheet==='vlog')renderSheet();});
+      }
+      break;}
     case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
     case 'close':closeSheet();break;
@@ -899,7 +919,7 @@ function publish(){
     crew:[[nm,'Driver',d.gender,Number(d.age)||27],...d.friends.map((f,i)=>[f.n.trim()||'Friend '+(i+1),'Friend',f.g,Number(f.a)||27])],
     seats:d.seats,friendsOk:d.friendsOk,friendPref:d.friendPref,rules:d.rules.length?d.rules.slice():['Sober driver'],
     v:d.v,house:d.house?{area:'Your area',pos:HOUSES[4]}:null,
-    vibe:d.vibe.length?d.vibe.slice():['Chill'],leaving:fmtTime(d.leaving),vlog:['Tonight with '+nm,venue.n+' next','Everyone gets home safe'],verified:true};
+    vibe:d.vibe.length?d.vibe.slice():['Chill'],leaving:fmtTime(d.leaving),vlog:['Tonight with '+nm,venue.n+' next','Everyone gets home safe'],verified:true,vlogLocal:d.vlogPreview||''};
   const ix=hosts.findIndex(x=>x.id==='me');if(ix>-1)hosts.splice(ix,1);
   hosts.unshift(h);S.posted=h;renderView();toast('Your plan is live');
 }
@@ -921,7 +941,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.auFile){const f=el.files&&el.files[0];if(f){S.auth.file=f;S.auth.preview=URL.createObjectURL(f);renderView();}return;}
   const f=el.dataset.f;if(!f)return;
   if(f==='verified')S.hostDraft.verified=el.checked;
-  else if(f==='vlogFile'){S.hostDraft.vlogName=el.files&&el.files[0]?el.files[0].name:'';renderView();}
+  else if(f==='vlogFile'){pickVlog(el.files&&el.files[0]);}
   else if(f==='v')S.hostDraft.v=Number(el.value);
   else S.hostDraft[f]=el.value;
 });
@@ -932,7 +952,7 @@ function planToHost(p,photo){
   return {id:'p_'+p.id,planId:p.id,real:true,mine,name:hn,rating:0,trips:0,car:p.car,color:p.color,plate:null,event:p.event,parkDesc:p.park_desc,parkM:p.park_m||100,
     crew:[[hn,'Driver',p.host.gender,p.host.age,photo||null],...friends],seats:p.seats,friendsOk:p.friends_ok,friendPref:p.friend_pref,rules:(p.rules&&p.rules.length)?p.rules:['Sober driver'],
     v:VENUES[p.next_venue]?p.next_venue:0,house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
-    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],verified:false};
+    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,verified:false};
 }
 let liveBusy=false;
 async function loadLive(){
@@ -959,18 +979,50 @@ async function loadLive(){
   liveBusy=false;
   if(!S.sheet&&((S.role==='rider'&&(S.tab==='tonight'||S.tab==='map'))||(S.role==='host'&&S.posted)))renderView();
 }
+function readVideoMeta(file){
+  return new Promise(res=>{
+    const v=document.createElement('video'),u=URL.createObjectURL(file);let done=false;
+    const fin=r=>{if(done)return;done=true;URL.revokeObjectURL(u);res(r);};
+    v.preload='metadata';v.muted=true;
+    v.onloadedmetadata=()=>fin({ok:true,duration:v.duration});
+    v.onerror=()=>fin({ok:false});
+    setTimeout(()=>fin({ok:false}),6000);
+    v.src=u;
+  });
+}
+async function pickVlog(file){
+  const d=S.hostDraft;d.vlogErr='';d.vlogWarn='';
+  if(d.vlogPreview){try{URL.revokeObjectURL(d.vlogPreview);}catch(e){}}
+  d.vlogFile=null;d.vlogName='';d.vlogPreview='';
+  if(!file){renderView();return;}
+  if(!/^video\//.test(file.type||'')){d.vlogErr='Pick a video file.';renderView();return;}
+  if(file.size>45*1024*1024){d.vlogErr='That video is over 45 MB. Record a shorter clip or at a lower quality.';renderView();return;}
+  const m=await readVideoMeta(file);
+  if(m.ok&&m.duration>62){d.vlogErr='That clip is '+Math.round(m.duration)+' seconds. Keep it under 60.';renderView();return;}
+  if(!m.ok)d.vlogWarn='This video could not be read here. It may not play on every phone. MP4 works best.';
+  d.vlogFile=file;d.vlogName=file.name;d.vlogPreview=URL.createObjectURL(file);
+  renderView();
+}
 async function publishReal(){
   const d=S.hostDraft,A=S.auth;
   if(!A.user||!A.profile){toast('Sign in and create your profile first');S.tab='safety';S.role='rider';renderAll();return;}
   if(!d.plate.trim()){toast('Add your plate number');return;}
   if(!d.verified){toast('Confirm that everyone in the car passed the selfie check');return;}
   if(S.publishing)return;
-  S.publishing=true;
+  S.publishing=true;renderView();
   try{
     const row={host_id:A.user.id,event:d.event,park_desc:d.park.trim().slice(0,120)||'Near the main gate',park_m:100,leaving_text:fmtTime(d.leaving),car:d.car.trim().slice(0,60),color:d.color.trim().slice(0,30),
       next_venue:d.v,house_offered:d.house,house_area:'Nearby',house_idx:Math.floor(Math.random()*HOUSES.length),seats:d.seats,friends_ok:d.friendsOk,friend_pref:d.friendPref,
       rules:d.rules.length?d.rules.slice():['Sober driver'],vibe:d.vibe.length?d.vibe.slice():['Chill'],
       crew:d.friends.map(f=>({n:(f.n||'Friend').trim().slice(0,40),g:f.g,a:Number(f.a)||27})),active:true};
+    let vlogPath=null;
+    if(d.vlogFile){
+      toast('Uploading your vlog…');
+      const up=await SB.storage.from('vlogs').upload(A.user.id+'/vlog',d.vlogFile,{upsert:true,contentType:d.vlogFile.type||'video/mp4'});
+      if(up.error)throw new Error('Vlog upload failed: '+(up.error.message||'try a smaller file'));
+      vlogPath=A.user.id+'/vlog';
+    }else{SB.storage.from('vlogs').remove([A.user.id+'/vlog']).catch(()=>{});}
+    row.vlog_path=vlogPath;
     const off=await SB.from('plans').update({active:false}).eq('host_id',A.user.id).eq('active',true);
     if(off.error)throw off.error;
     const ins=await SB.from('plans').insert(row).select('id').single();
@@ -986,6 +1038,7 @@ async function endPlan(){
   const h=S.posted;if(!h||!h.real)return;
   const r=await SB.from('plans').update({active:false}).eq('id',h.planId);
   if(r.error){toast('Could not end it: '+(r.error.message||'try again'));return;}
+  if(h.vlogPath){SB.storage.from('vlogs').remove([h.vlogPath]).catch(()=>{});}
   S.posted=null;S.live=S.live.filter(x=>x.planId!==h.planId);renderView();toast('Your plan has ended');
 }
 async function authSend(){
