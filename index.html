@@ -584,7 +584,7 @@ function viewHost(){
     <div><div class="eyebrow" style="margin-bottom:8px">Vibe. Riders who match show up first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="hvibe" data-v="${v}" aria-pressed="${d.vibe.includes(v)}">${v}</button>`).join('')}</div></div></section>
   <section class="panel"><h3>Your lifestyle vlog</h3>
     <label class="fld" for="f-vlog"><span>Upload a short clip (up to 60 seconds and 45 MB)</span><input class="inp" id="f-vlog" type="file" accept="video/*" data-f="vlogFile"></label>
-    ${d.vlogPreview?`<video class="vplayer" style="max-height:260px" controls playsinline preload="metadata" src="${esc(d.vlogPreview)}"></video><p class="note">Selected: ${esc(d.vlogName)}</p>`:'<p class="note">Riders watch this before they choose. MP4 works best. Record at a lower quality if the file is too big.</p>'}
+    ${d.vlogPreview?`<video class="vplayer" style="max-height:260px" controls playsinline preload="auto" src="${esc(d.vlogPreview)}#t=0.1"></video><p class="note">Selected: ${esc(d.vlogName)}</p>`:'<p class="note">Riders watch this before they choose. MP4 works best. Record at a lower quality if the file is too big.</p>'}
     ${d.vlogWarn?`<p class="note">${esc(d.vlogWarn)}</p>`:''}
     ${d.vlogErr?`<p class="note" style="color:var(--bad)">${esc(d.vlogErr)}</p>`:''}</section>
   <label class="toggle" style="gap:12px;align-items:flex-start" for="f-ver"><span><b>Everyone in my car has passed the selfie and ID check</b><span class="note" style="display:block">Listings with unverified people are removed.</span></span><input id="f-ver" type="checkbox" data-f="verified" ${d.verified?'checked':''} style="width:22px;height:22px;accent-color:var(--accent);flex:none"></label>
@@ -706,7 +706,7 @@ function sheetVlog(){
   const h=hostById(S.vlog.id),V=S.vlog,i=V.i;
   const head=lab=>`<div class="sheet-h"><div><span class="eyebrow">${lab}</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>`;
   if(h.real||h.vlogLocal){
-    const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="metadata" src="${esc(V.url)}"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
+    const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="auto" src="${esc(V.url)}#t=0.1"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
     return head('Vlog')+body+`<p class="note">If it does not play, the video may be in a format your phone cannot open. MP4 works best.</p><button class="btn" data-act="open" data-id="${h.id}">See the plan</button>`;
   }
   return head('Sample vlog preview')+`<div class="stories" style="--h:${hue(h.name)}"><div class="bars">${h.vlog.map((_,j)=>`<i class="${j<=i?'on':''}"></i>`).join('')}</div>
