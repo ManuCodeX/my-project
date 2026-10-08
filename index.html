@@ -1,0 +1,792 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}</style></head><body><title>Pull Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width app column, centered on desktop. Tabs: Tonight, Map, Trip, Safety. Riders choose; hosts post plans. */
+:root{
+  --bg:#EDF0EB; --surface:#FFFFFF; --surface-2:#E3E8E1; --ink:#14201A; --ink-2:#51605A; --line:#CBD3CA;
+  --accent:#9A5F08; --accent-ink:#FFFFFF; --accent-soft:#F1E2C6;
+  --good:#1B7A4B; --good-soft:#D6EBDD; --bad:#C0352B; --bad-ink:#FFFFFF; --bad-soft:#F6D9D5; --me:#1769AA;
+  --m-land:#E6EAE3; --m-park:#D2E3CC; --m-road:#FFFFFF; --m-major:#F6E9CF; --m-water:#BFD6E0; --m-text:#5C6A63; --m-halo:#E6EAE3;
+  --f-display:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B110F; --surface:#121A17; --surface-2:#1A2420; --ink:#EBF0EA; --ink-2:#98A79F; --line:#26332D;
+    --accent:#EDB44E; --accent-ink:#1B1204; --accent-soft:#2B2311;
+    --good:#4CC98A; --good-soft:#12301F; --bad:#FF6F61; --bad-ink:#1C0705; --bad-soft:#3A1714; --me:#5BB0F0;
+    --m-land:#0F1613; --m-park:#14211A; --m-road:#1C2823; --m-major:#2A2A1E; --m-water:#0E2230; --m-text:#7C8C84; --m-halo:#0F1613;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B110F; --surface:#121A17; --surface-2:#1A2420; --ink:#EBF0EA; --ink-2:#98A79F; --line:#26332D;
+  --accent:#EDB44E; --accent-ink:#1B1204; --accent-soft:#2B2311;
+  --good:#4CC98A; --good-soft:#12301F; --bad:#FF6F61; --bad-ink:#1C0705; --bad-soft:#3A1714; --me:#5BB0F0;
+  --m-land:#0F1613; --m-park:#14211A; --m-road:#1C2823; --m-major:#2A2A1E; --m-water:#0E2230; --m-text:#7C8C84; --m-halo:#0F1613;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;overflow:hidden}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+input,select,textarea{font:inherit;color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ic{flex:none}
+.app{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;background:var(--bg);border-inline:1px solid var(--line);position:relative}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.logo{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:800;font-size:21px;letter-spacing:-.02em}
+.logo i{display:flex;gap:3px}
+.logo i b{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.seg{display:flex;background:var(--surface-2);border-radius:999px;padding:3px}
+.seg button{padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.view{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.view>*{flex:none}
+.sheet>*{flex:none}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface)}
+.tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-size:11px;font-weight:700;color:var(--ink-2);position:relative}
+.tabs button[aria-current="page"]{color:var(--accent)}
+.tabs button[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--accent)}
+.tabs .dot{position:absolute;top:7px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--good)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+h1,h2,h3{font-family:var(--f-display);margin:0;letter-spacing:-.02em;text-wrap:balance}
+h1{font-size:28px;line-height:1.05;font-weight:800}
+h2{font-size:19px;font-weight:700}
+h3{font-size:15px;font-weight:700}
+p{margin:0}
+.muted{color:var(--ink-2)}
+.hero{display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:12px;color:var(--ink-2)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.rule{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--good-soft);color:var(--ink);font-size:13px}
+.rule .ic{color:var(--good)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.thumb{position:relative;aspect-ratio:16/8.5;overflow:hidden;color:#fff;
+  background:radial-gradient(120% 90% at 15% 100%,hsl(var(--h) 70% 45% / .55),transparent 60%),radial-gradient(90% 80% at 90% 0%,hsl(calc(var(--h) + 40) 60% 50% / .35),transparent 60%),linear-gradient(170deg,#101816,#1B2622)}
+.thumb .car{position:absolute;left:50%;bottom:6%;width:62%;transform:translateX(-50%);opacity:.95}
+.thumb .tl{position:absolute;top:10px;left:10px;right:110px;display:flex;gap:6px;flex-wrap:wrap}
+.thumb .tr{position:absolute;top:10px;right:10px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(10,14,12,.62);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(4px)}
+.tag.crew{background:var(--accent);color:var(--accent-ink);font-size:12px}
+.play{position:absolute;left:10px;bottom:10px;display:flex;align-items:center;gap:6px;padding:6px 11px 6px 8px;border-radius:999px;background:rgba(255,255,255,.92);color:#101816;font-weight:700;font-size:12px}
+.card-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.name{font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:-.01em}
+.vbadge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:var(--good-soft);color:var(--good);font-size:11px;font-weight:700}
+.vbadge.pending{background:var(--accent-soft);color:var(--accent)}
+.rating{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:13px}
+.rating .ic{color:var(--accent)}
+.avs{display:flex}
+.av{position:relative;display:block;width:28px;height:28px;border-radius:50%;border:2px solid var(--surface);flex:none}
+.avs .av+.av{margin-left:-8px}
+.av svg.p{display:block;width:100%;height:100%;border-radius:50%}
+.av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.tag.fit{background:var(--good);color:var(--bg)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.pp{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;padding:12px 8px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.pp b{overflow-wrap:anywhere}
+.req{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.sub{background:var(--surface-2);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.crewline{display:flex;align-items:center;gap:10px}
+.legs{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:12px;color:var(--ink-2)}
+.legs b{color:var(--ink);font-weight:700}
+.legs .arrow{color:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;width:100%}
+.btn.ghost{background:var(--surface-2);color:var(--ink)}
+.btn.danger{background:var(--bad);color:var(--bad-ink)}
+.btn.sm{padding:8px 12px;font-size:12px;width:auto;border-radius:10px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.mono{font-family:var(--f-mono);font-weight:700}
+.plate{display:inline-block;padding:5px 11px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-weight:700;font-size:15px;letter-spacing:.06em}
+.map-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--m-land);position:relative}
+svg.map{display:block;width:100%;height:auto}
+.m-land{fill:var(--m-land)} .m-park{fill:var(--m-park)} .m-water{fill:var(--m-water)}
+.m-road{stroke:var(--m-road);stroke-width:3;fill:none} .m-major{stroke:var(--m-major);stroke-width:6;fill:none}
+.m-route-bg{stroke:var(--accent);stroke-opacity:.28;stroke-width:9;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.m-route{stroke:var(--accent);stroke-width:4;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.m-trail{stroke:var(--ink-2);stroke-opacity:.6;stroke-width:4;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.m-dev{stroke:var(--bad);stroke-width:3;stroke-dasharray:6 5;fill:none}
+.m-text{font-family:var(--f-body);font-weight:700;fill:var(--ink);paint-order:stroke;stroke:var(--m-halo);stroke-width:3px;stroke-linejoin:round}
+.m-dist{font-family:var(--f-body);font-weight:700;letter-spacing:.14em;fill:var(--m-text);opacity:.75}
+.m-fuzz{fill:var(--accent);fill-opacity:.12;stroke:var(--accent);stroke-dasharray:4 4;stroke-width:1.5}
+.hit{cursor:pointer}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.6);opacity:.8}100%{transform:scale(2.2);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none;opacity:.3}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.list li{display:flex;gap:10px;align-items:flex-start}
+.stop{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center}
+.stop .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--accent);font-weight:700;font-size:12px;color:var(--accent);background:var(--surface)}
+.stop.done .n{background:var(--good);border-color:var(--good);color:var(--bg)}
+.stop.skip{opacity:.45}
+.stop small{color:var(--ink-2);display:block}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
+.sw{width:44px;height:26px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--ink-2);transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.sw[aria-checked="true"]::after{transform:translateX(18px);background:var(--accent-ink)}
+.stepper{display:inline-flex;align-items:center;gap:10px}
+.stepper button{width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center}
+.stepper b{min-width:18px;text-align:center;font-family:var(--f-mono)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.stat b{font-family:var(--f-display);font-size:20px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--ink-2)}
+.livebar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.live{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px}
+.live i{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px var(--good-soft)}
+.sos{padding:9px 16px;border-radius:999px;background:var(--bad);color:var(--bad-ink);font-weight:800;letter-spacing:.06em;font-size:13px}
+.log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.log li{display:flex;gap:8px;color:var(--ink-2)}
+.log li b{font-family:var(--f-mono);font-weight:500;color:var(--ink-2);flex:none}
+.log li.bad{color:var(--bad)}
+.log li.good{color:var(--good)}
+.status{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.status .btn{width:auto}
+.empty{text-align:left;display:flex;flex-direction:column;gap:10px;padding:20px;border:1px dashed var(--line);border-radius:16px}
+label.fld{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink-2)}
+.inp{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.58);display:flex;align-items:flex-end;justify-content:center;z-index:40}
+.sheet{width:100%;max-height:93%;background:var(--surface);border-radius:20px 20px 0 0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line)}
+.sheet-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.x{width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;flex:none}
+.alert{border-radius:14px;padding:14px;background:var(--bad-soft);color:var(--ink);display:flex;flex-direction:column;gap:6px}
+.alert h2{color:var(--bad)}
+.stories{aspect-ratio:9/13;max-height:56vh;margin:0 auto;width:100%;border-radius:16px;position:relative;color:#fff;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:16px;
+  background:radial-gradient(100% 70% at 20% 100%,hsl(var(--h) 70% 45% / .7),transparent 60%),radial-gradient(80% 60% at 90% 10%,hsl(calc(var(--h) + 40) 60% 55% / .4),transparent 60%),linear-gradient(170deg,#0e1513,#1C2824)}
+.bars{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:4px}
+.bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
+.bars i.on{background:#fff}
+.stories .cap{font-family:var(--f-display);font-weight:700;font-size:24px;line-height:1.1;text-wrap:balance}
+.stories .tap{position:absolute;top:0;bottom:0;width:50%}
+.stars{display:flex;gap:6px}
+.stars button{color:var(--ink-2)}
+.stars button[aria-pressed="true"]{color:var(--accent)}
+.stars button[aria-pressed="true"] svg{fill:currentColor}
+.toast{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:999px;font-weight:700;font-size:12px;z-index:60;max-width:90%;text-align:center}
+.toast[hidden]{display:none}
+details.demo{border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+details.demo summary{cursor:pointer;font-weight:700;font-size:12px;color:var(--ink-2)}
+details.demo .chips{margin-top:10px}
+.note{font-size:12px;color:var(--ink-2)}
+.hscroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.mini{flex:none;width:200px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:4px}
+@media (max-width:420px){.two{grid-template-columns:1fr}}
+</style>
+
+<div class="app" id="app">
+  <header class="hdr" id="hdr"></header>
+  <main class="view" id="view"></main>
+  <nav class="tabs" id="tabs" aria-label="Main"></nav>
+  <div id="sheetRoot"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const KM=0.02, KMH=30;                       // 40 map units = 0.8 km; city driving speed
+const $=(s,r)=>(r||document).querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+const IC={
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/>',
+  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  car:'<path d="M4 16v-3.5L6 7h12l2 5.5V16"/><path d="M3 16h18v3h-4v-3M7 19v-3"/><path d="M6.5 12.5h.01M17.5 12.5h.01"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M17 14c2.5 0 4.5 2 4.5 5"/>',
+  pin:'<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  play:'<path d="M8 5l11 7-11 7z" fill="currentColor"/>',
+  star:'<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/>',
+  alert:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/>',
+  route:'<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 000-6h-4a3 3 0 010-6h6"/>',
+  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/>',
+  home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-6h4v6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  map:'<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  list:'<path d="M4 6h16M4 12h16M4 18h10"/>',
+  upload:'<path d="M12 16V5M7 10l5-5 5 5M5 20h14"/>'
+};
+const ic=(n,s)=>`<svg class="ic" width="${s||18}" height="${s||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const hue=n=>{let h=0;for(const c of n)h=(h*37+c.charCodeAt(0))%360;return h;};
+const av=(n,s,ok)=>{const z=s||28;return `<span class="av" style="background:hsl(${hue(n)} 40% 34%);width:${z}px;height:${z}px" title="${esc(n)}"><svg class="p" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="16" r="7" fill="rgba(255,255,255,.88)"/><path d="M6 42c0-10 6-15 14-15s14 5 14 15z" fill="rgba(255,255,255,.88)"/></svg>${ok?`<i class="okb" title="Face matched to ID">${ic('check',10)}</i>`:''}</span>`;};
+const vb=(v)=>v?`<span class="vbadge">${ic('check',11)}ID verified</span>`:`<span class="vbadge pending">Verifying</span>`;
+
+/* ---------- sample data (all invented) ---------- */
+const EVENTS={
+  a:{id:'a',name:'Neon Nights',venue:'Aura Lounge',pos:[120,200],ends:'Ends 2:00 AM'},
+  b:{id:'b',name:'Rooftop Sessions',venue:'Palm Court',pos:[280,120],ends:'Ends 1:30 AM'}
+};
+const HOME=[40,120];
+const VENUES=[
+  {n:'Chop Bar Grill',note:'Late dinner, grills and suya',pos:[200,280]},
+  {n:'Sunset Rooftop',note:'Reserved table on the roof',pos:[320,240]},
+  {n:'Waffle House Late',note:'Waffles and a quiet drive',pos:[80,320]},
+  {n:'Beachfront Lounge',note:'Open-air seats by the water',pos:[200,440]},
+  {n:'Skyline Terrace',note:'Cocktails with a city view',pos:[360,200]}
+];
+const HOUSES=[[240,400],[360,360],[280,400],[160,400],[320,320]];
+const hosts=[
+  {id:'h1',name:'Kwesi A.',rating:4.9,trips:212,car:'Mercedes E-Class',color:'Black',plate:'GR 4471-23',event:'a',parkDesc:'Opposite the fuel station',parkM:90,
+   crew:[['Kwesi A.','Driver','Man',27],['Nii T.','Friend','Man',28]],seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking'],
+   v:0,house:{area:'Airport Ridge',pos:HOUSES[0]},vibe:['Dinner','Chill'],leaving:'2:15 AM',vlog:['Friday with the boys','Dinner first, always','Slow drive home after']},
+  {id:'h2',name:'Selasi D.',rating:4.8,trips:96,car:'Range Rover Sport',color:'White',plate:'GE 902-22',event:'a',parkDesc:'Side street behind the VIP gate',parkM:150,
+   crew:[['Selasi D.','Driver','Man',30],['Fiifi K.','Friend','Man',29],['Kojo M.','Friend','Man',31],['Elikem P.','Friend','Man',28]],seats:1,friendsOk:false,friendPref:'any',rules:['Sober driver','Seatbelts on'],
+   v:1,house:{area:'Hillside',pos:HOUSES[1]},vibe:['Lounge','Music','Dancing'],leaving:'2:30 AM',vlog:['Rooftop season','Table is reserved','Music till sunrise']},
+  {id:'h3',name:'Yaw B.',rating:4.6,trips:41,car:'BMW 5 Series',color:'Blue',plate:'AS 318-24',event:'b',parkDesc:'Taxi bay by the main road',parkM:60,
+   crew:[['Yaw B.','Driver','Man',25]],seats:3,friendsOk:true,friendPref:'women',rules:['Sober driver','No smoking','No outside drinks'],
+   v:2,house:null,vibe:['Dessert','Quiet','Dinner'],leaving:'1:45 AM',vlog:['Just me and the playlist','Waffles are on me','Home by 3']},
+  {id:'h4',name:'Edem O.',rating:5.0,trips:310,car:'Lexus LX 600',color:'Grey',plate:'GN 77-21',event:'b',parkDesc:'Car park B by the palm entrance',parkM:110,
+   crew:[['Edem O.','Driver','Man',33],['Selorm A.','Friend','Man',32],['Dela W.','Friend','Woman',26]],seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','Respect the playlist'],
+   v:3,house:{area:'Seaside',pos:HOUSES[2]},vibe:['Beach','Chill','Music'],leaving:'2:00 AM',vlog:['Night drive by the water','Open-air seats','Everyone gets home safe']},
+  {id:'h5',name:'Kojo M.',rating:4.7,trips:68,car:'Porsche Cayenne',color:'Silver',plate:'GW 5520-22',event:'b',parkDesc:'Loading zone outside Gate 2',parkM:80,
+   crew:[['Kojo M.','Driver','Man',29],['Papa S.','Friend','Man',30],['Raymond L.','Friend','Man',27],['Tei N.','Friend','Man',28],['Jojo B.','Friend','Man',26]],seats:1,friendsOk:false,friendPref:'any',rules:['Sober driver','No smoking'],
+   v:4,house:null,vibe:['Party','Music'],leaving:'2:10 AM',vlog:['Big group, big energy','City view cocktails','We drop everyone off']}
+];
+hosts.forEach(h=>h.verified=true);
+const CONTACTS=[{id:'c1',name:'Ama O.',rel:'Sister'},{id:'c2',name:'Efua K.',rel:'Best friend'}];
+const VIBES=['Dinner','Chill','Lounge','Music','Dancing','Dessert','Quiet','Beach','Party'];
+
+/* ---------- geometry: routes follow the road grid ---------- */
+const same=(a,b)=>a[0]===b[0]&&a[1]===b[1];
+const man=(a,b)=>Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1]);
+function buildRoute(stops){
+  const pts=[stops[0]],at=[0];let cum=0;
+  for(let i=1;i<stops.length;i++){
+    const a=pts[pts.length-1],b=stops[i];
+    const mid=(i%2===1)?[b[0],a[1]]:[a[0],b[1]];
+    [mid,b].forEach(p=>{const q=pts[pts.length-1];if(!same(p,q)){cum+=man(p,q);pts.push(p);}});
+    at.push(cum);
+  }
+  return {pts,at,total:cum};
+}
+function posAt(pts,d){
+  let r=d;
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1],b=pts[i],l=man(a,b);
+    if(r<=l||i===pts.length-1){const t=l?Math.min(r,l)/l:0;return {x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,dx:Math.sign(b[0]-a[0]),dy:Math.sign(b[1]-a[1])};}
+    r-=l;
+  }
+  return {x:pts[0][0],y:pts[0][1],dx:0,dy:1};
+}
+const kmTxt=u=>(u*KM).toFixed(1)+' km';
+const minTxt=u=>Math.max(1,Math.ceil(u*KM/KMH*60))+' min';
+function boxFor(points,ratio,pad,minW){
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+  let w=Math.max(...xs)-Math.min(...xs)+2*pad,h=Math.max(...ys)-Math.min(...ys)+2*pad;
+  w=Math.max(w,minW);h=Math.max(h,minW/ratio);
+  if(w/h>ratio)h=w/ratio;else w=h*ratio;
+  const cx=(Math.max(...xs)+Math.min(...xs))/2,cy=(Math.max(...ys)+Math.min(...ys))/2;
+  return {x:cx-w/2,y:cy-h/2,w,h};
+}
+const BASE=(function(){
+  let s='<rect class="m-land" x="-400" y="-400" width="1200" height="1200"/>';
+  [[164,44,72,72],[44,204,72,32],[284,284,72,72],[44,404,72,32],[204,164,32,32]].forEach(p=>{s+=`<rect class="m-park" x="${p[0]}" y="${p[1]}" width="${p[2]}" height="${p[3]}" rx="6"/>`;});
+  for(let v=-120;v<=520;v+=40){const major=((v%120)+120)%120===0;s+=`<path class="${major?'m-major':'m-road'}" d="M${v} -200V700"/><path class="${major?'m-major':'m-road'}" d="M-200 ${v}H700"/>`;}
+  s+='<path class="m-major" d="M-120 540L520 -100"/>';
+  s+='<path class="m-water" d="M-400 478Q-100 505 100 486T420 480T800 478V800H-400Z"/>';
+  [['OLD TOWN',14,70],['HILLSIDE',330,170],['AIRPORT RIDGE',190,372],['MARINA',30,440],['SEASIDE',280,448],['THE GULF',150,530]].forEach(l=>{s+=`<text class="m-dist" x="${l[1]}" y="${l[2]}" font-size="9">${l[0]}</text>`;});
+  return s;
+})();
+function mk(m,k){
+  const [x,y]=m.pos,r=11*k,fs=10*k;let g='';
+  const label=m.label?`<text class="m-text" x="${x}" y="${y+r+fs+2*k}" font-size="${fs}" text-anchor="middle">${esc(m.label)}</text>`:'';
+  if(m.kind==='fuzz')return `<circle class="m-fuzz" cx="${x}" cy="${y}" r="26"/><text class="m-text" x="${x}" y="${y+3*k}" font-size="${fs}" text-anchor="middle">${esc(m.label)}</text><text class="m-dist" x="${x}" y="${y+14*k}" font-size="${fs*.85}" text-anchor="middle">area only</text>`;
+  if(m.kind==='you')return `<circle class="pulse" cx="${x}" cy="${y}" r="${r}" style="fill:var(--me)"/><circle cx="${x}" cy="${y}" r="${r*.6}" style="fill:var(--me);stroke:var(--surface);stroke-width:${2*k}"/>${label}`;
+  if(m.kind==='event')g=`<rect x="${x-r}" y="${y-r}" width="${r*2}" height="${r*2}" rx="${r*.4}" style="fill:var(--ink)"/><path d="M${x-r*.4} ${y-r*.5}L${x+r*.5} ${y}L${x-r*.4} ${y+r*.5}Z" style="fill:var(--bg)"/>`;
+  else if(m.kind==='home')g=`<circle cx="${x}" cy="${y}" r="${r}" style="fill:var(--good);stroke:var(--surface);stroke-width:${2*k}"/><path d="M${x-r*.5} ${y+r*.1}L${x} ${y-r*.5}L${x+r*.5} ${y+r*.1}V${y+r*.5}H${x-r*.5}Z" style="fill:var(--bg)"/>`;
+  else g=`<circle cx="${x}" cy="${y}" r="${r}" style="fill:${m.kind==='park'?'var(--accent)':'var(--surface)'};stroke:var(--accent);stroke-width:${2.2*k}"/><text x="${x}" y="${y+fs*.36}" font-size="${fs*1.05}" text-anchor="middle" style="font-family:var(--f-body);font-weight:800;fill:${m.kind==='park'?'var(--accent-ink)':'var(--accent)'}">${esc(m.glyph||'')}</text>`;
+  if(m.count)g+=`<circle cx="${x+r*.9}" cy="${y-r*.9}" r="${r*.62}" style="fill:var(--ink);stroke:var(--surface);stroke-width:${1.5*k}"/><text x="${x+r*.9}" y="${y-r*.9+fs*.34}" font-size="${fs*.9}" text-anchor="middle" style="font-family:var(--f-body);font-weight:800;fill:var(--bg)">${m.count}</text>`;
+  g=m.hit?`<g class="hit" data-act="open" data-id="${m.hit}" role="button" tabindex="0" aria-label="${esc(m.aria||'Open plan')}">${g}</g>`:g;
+  return g+label;
+}
+function mapSVG(o){
+  const k=o.box.w/400;let s=BASE;
+  if(o.trail&&o.trail.length>1)s+=`<polyline class="m-trail" points="${o.trail.map(p=>p.join(',')).join(' ')}"/>`;
+  if(o.route){const pl=o.route.map(p=>p.join(',')).join(' ');s+=`<polyline class="m-route-bg" points="${pl}"/><polyline class="m-route" points="${pl}"/>`;}
+  if(o.dev)s+=`<line class="m-dev" x1="${o.dev.from[0]}" y1="${o.dev.from[1]}" x2="${o.dev.to[0]}" y2="${o.dev.to[1]}"/>`;
+  (o.markers||[]).forEach(m=>{s+=mk(m,k);});
+  if(o.car){const c=o.car,ang=Math.atan2(c.dx,-c.dy)*180/Math.PI;
+    s+=`<g transform="translate(${c.x} ${c.y})"><circle class="pulse" r="${12*k}" style="fill:${o.dev?'var(--bad)':'var(--accent)'}"/><g transform="rotate(${ang}) scale(${k})"><path d="M0 -12L8 9L0 5L-8 9Z" style="fill:${o.dev?'var(--bad)':'var(--accent)'};stroke:var(--surface);stroke-width:2;stroke-linejoin:round"/></g></g>`;}
+  return `<svg class="map" viewBox="${o.box.x.toFixed(1)} ${o.box.y.toFixed(1)} ${o.box.w.toFixed(1)} ${o.box.h.toFixed(1)}" role="img" aria-label="${esc(o.aria||'Map')}">${s}</svg>`;
+}
+
+/* ---------- state ---------- */
+const S={
+  role:'rider',tab:'tonight',event:'a',group:99,
+  sheet:null,draft:null,req:null,trip:null,rating:0,
+  settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
+  me:{name:'Adjoa',age:24,shows:97,vibes:['Dinner','Chill','Music']},
+  requests:[
+    {id:'q1',name:'Naa A.',age:23,shows:97,rating:4.9,vibes:['Dinner','Chill','Music'],friend:{name:'Esi',gender:'Woman',age:24},status:'new'},
+    {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
+    {id:'q3',name:'Maame K.',age:25,shows:99,rating:5.0,vibes:['Dinner','Quiet'],friend:{name:'Jay',gender:'Man',age:27},status:'new'}
+  ],
+  hostDraft:{event:'a',name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
+  posted:null,vlog:{id:null,i:0}
+};
+let toastT=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2600);}
+const hostById=id=>hosts.find(h=>h.id===id);
+const newDraft=id=>({id,house:false,friendOn:false,friend:{name:'',gender:'Woman',age:'24',sent:false,verified:false}});
+const RULES=['Sober driver','No smoking','No outside drinks','Seatbelts on','Respect the playlist'];
+const gword=(g,n)=>g==='Woman'?(n===1?'woman':'women'):(n===1?'man':'men');
+function crewMix(h){const m=h.crew.filter(c=>c[2]==='Man').length,w=h.crew.length-m;return [m?m+' '+gword('Man',m):'',w?w+' '+gword('Woman',w):''].filter(Boolean).join(', ');}
+const fit=h=>h.vibe.filter(v=>S.me.vibes.includes(v));
+const fitTag=h=>{const f=fit(h);return f.length?`<span class="tag fit">${ic('check',12)}Fits your vibe: ${esc(f.join(', '))}</span>`:'';};
+const friendPolicy=h=>h.friendsOk?(h.friendPref==='women'?'Friends welcome (women only)':'Friends welcome'):'No extra friends tonight';
+const seatsLine=h=>`${h.seats} seat${h.seats===1?'':'s'} open · ${friendPolicy(h)}`;
+const seatsLeft=()=>S.hostDraft.seats-S.requests.filter(r=>r.status==='accepted').reduce((a,r)=>a+1+(r.friend?1:0),0);
+const legsFor=(h,withHouse)=>{
+  const ev=EVENTS[h.event],nx=VENUES[h.v];
+  const stops=[{name:'Pickup',sub:h.parkDesc+', '+h.parkM+' m from the gate',pos:ev.pos,kind:'park'},{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}];
+  if(withHouse&&h.house)stops.push({name:'His place',sub:h.house.area+' (optional)',pos:h.house.pos,kind:'house'});
+  stops.push({name:'Drop-off at your place',sub:'Only you and your contacts see this',pos:HOME,kind:'home'});
+  const r=buildRoute(stops.map(s=>s.pos));
+  stops.forEach((s,i)=>{s.at=r.at[i];});
+  return {stops,route:r};
+};
+
+/* ---------- views ---------- */
+function renderHdr(){
+  $('#hdr').innerHTML=`<div class="logo"><i><b></b><b></b></i>Pull Up</div>
+  <div class="seg" role="group" aria-label="Switch side"><button data-act="role" data-v="rider" aria-pressed="${S.role==='rider'}">Riding</button><button data-act="role" data-v="host" aria-pressed="${S.role==='host'}">Hosting</button></div>`;
+}
+function renderTabs(){
+  const T=[['tonight','Tonight','list'],['map','Map','map'],['trip','Trip','route'],['safety','Safety','shield']];
+  $('#tabs').innerHTML=T.map(t=>`<button data-act="tab" data-v="${t[0]}" ${S.tab===t[0]?'aria-current="page"':''}>${ic(t[2],20)}${t[1]}${t[0]==='trip'&&S.req?'<span class="dot"></span>':''}</button>`).join('');
+}
+function crewLabel(h){const n=h.crew.length;return n===1?'Just him in the car':`${n} in the car`;}
+function cardHTML(h){
+  const L=legsFor(h,false),st=L.stops,ev=EVENTS[h.event];
+  const toNext=st[1].at-st[0].at,toHome=st[2].at-st[1].at;
+  return `<article class="card" id="card-${h.id}">
+  <div class="thumb" style="--h:${hue(h.name)}">
+    <svg class="car" viewBox="0 0 124 64" aria-hidden="true"><ellipse cx="62" cy="58" rx="54" ry="5" fill="rgba(0,0,0,.35)"/><path d="M10 46C10 40 14 36 20 35L34 24C37 21 41 20 45 20H80C85 20 89 22 92 25L102 35C110 36 114 40 114 46V52H10Z" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/><circle cx="32" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="92" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="108" cy="42" r="3.2" fill="#FFD27A"/><circle cx="16" cy="42" r="2.6" fill="#ff6a5c"/></svg>
+    <div class="tl"><span class="tag">${ic('clock',12)}Leaving ${esc(h.leaving)}</span>${fitTag(h)}</div>
+    <div class="tr"><span class="tag crew">${ic('users',14)}${h.crew.length===1?'Solo':'Group of '+h.crew.length}</span></div>
+    <button class="play" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s vlog">${ic('play',14)}Vlog 1:12</button>
+  </div>
+  <div class="card-body">
+    <div class="row"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="name">${esc(h.name)}</span>${vb(h.verified)}</div>
+    <span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'}<span class="muted" style="font-weight:400">${h.trips?'('+h.trips+')':''}</span></span></div>
+    <div class="muted">${esc(h.color)} ${esc(h.car)} · parked ${h.parkM} m from ${esc(ev.venue)}</div>
+    <div class="crewline"><div class="avs">${h.crew.slice(0,5).map(c=>av(c[0])).join('')}</div><span><b>${crewLabel(h)}</b><span class="muted"> · ${crewMix(h)}</span></span></div>
+    <div class="note">${seatsLine(h)}</div>
+    <div class="legs"><b>Pickup</b><span class="arrow">&rarr;</span><b>${esc(VENUES[h.v].n)}</b> ${kmTxt(toNext)}<span class="arrow">&rarr;</span><b>Your place</b> ${kmTxt(toHome)}</div>
+    <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>
+  </div></article>`;
+}
+function viewTonight(){
+  const list=hosts.filter(h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group).sort((a,b)=>fit(b).length-fit(a).length);
+  const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
+  return `<div class="hero"><span class="eyebrow">Tonight near you</span><h1>The event's over. Pick your ride.</h1><p class="muted">You choose who you move with. Hosts can't message you first.</p></div>
+  <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
+  <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
+  <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
+  ${list.length?list.map(cardHTML).join(''):'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'}`;
+}
+function viewMap(){
+  const pts=[EVENTS.a.pos,EVENTS.b.pos,...VENUES.map(v=>v.pos),HOME];
+  const box=boxFor(pts,0.9,36,300);
+  const markers=[];
+  markers.push({kind:'home',pos:HOME,label:'Your place'});
+  Object.values(EVENTS).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.venue}));
+  VENUES.forEach((v,i)=>markers.push({kind:'stop',pos:v.pos,glyph:'',label:v.n}));
+  if(S.event!=='all')markers.push({kind:'you',pos:EVENTS[S.event].pos,label:''});
+  ['a','b'].forEach(eid=>{
+    const hs=hosts.filter(h=>h.event===eid);
+    hs.forEach((h,i)=>{const a=-Math.PI/2+i*(2*Math.PI/hs.length)+0.6,r=hs.length===1?0:40;
+      markers.push({kind:'park',glyph:'P',pos:[EVENTS[eid].pos[0]+Math.cos(a)*r+(eid==='a'?0:0),EVENTS[eid].pos[1]+Math.sin(a)*r],count:h.crew.length,hit:h.id,aria:`${h.name}, ${h.crew.length} in the car, ${h.parkM} metres away`});});
+  });
+  const order=['stop','event','home','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
+  return `<div class="hero"><span class="eyebrow">Live map</span><h2>Who is parked where</h2><p class="muted">Each amber pin is a host parked near the event. The number on the pin is how many people are in that car. Tap one to see the full plan.</p></div>
+  <div class="map-wrap">${mapSVG({box,markers,aria:'Map of events, parked hosts and next stops'})}</div>
+  <div class="hscroll">${hosts.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="note">${h.parkM} m from ${esc(EVENTS[h.event].venue)}</span></button>`).join('')}</div>
+  <p class="note">Sample map with made-up places. Real hosts appear here once they post a plan.</p>`;
+}
+function viewSafety(){
+  const st=S.settings;
+  const sw=(on,act,id)=>`<button class="sw" role="switch" aria-checked="${on}" data-act="${act}" data-id="${id||''}"></button>`;
+  return `<div class="hero"><span class="eyebrow">Profile and safety</span><h2>Set it once, it runs on every ride</h2></div>
+  <section class="panel"><h3>Your profile</h3><div class="crewline">${av(S.me.name,56,true)}<div style="flex:1"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">Woman · Face matched to your ID · ${S.me.shows}% show-up</div></div></div>
+    <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="mevibe" data-v="${v}" aria-pressed="${S.me.vibes.includes(v)}">${v}</button>`).join('')}</div></div>
+    <p class="note">Hosts see your first name, age, photo, vibe and show-up rate. They never see your surname, number or home address.</p></section>
+  <section class="panel"><h3>Trusted contacts</h3>
+    ${CONTACTS.map(c=>`<div class="toggle" style="padding:2px 0"><div class="crewline">${av(c.name,34)}<div><b>${esc(c.name)}</b><div class="note">${esc(c.rel)}</div></div></div>${sw(st.share[c.id],'tglc',c.id)}</div>`).join('')}
+    <p class="note">They get the plate, the crew, the route and a live link when you confirm a ride.</p></section>
+  <section class="panel"><h3>Alert me when the car leaves the route by</h3>
+    <div class="chips">${[[0.3,'300 m'],[0.5,'500 m'],[1,'1 km']].map(t=>`<button class="chip" data-act="thr" data-v="${t[0]}" aria-pressed="${st.threshold===t[0]}">${t[1]}</button>`).join('')}</div>
+    <div class="toggle"><div><b>Midway check-in</b><div class="note">"You good?" pops up. No reply in 10 seconds alerts your contacts.</div></div>${sw(st.checkin,'tglchk')}</div></section>
+  <section class="panel"><h3>No catfish, on either side</h3>
+    <ul class="list">
+      ${['Live selfie matched to your ID and to every profile photo, for riders, hosts and friends','Gallery photos cannot be used for the face check, so no borrowed pictures','Pickup photo check: both sides confirm the person matches before the trip starts','Hosts see riders and friends (photo, gender, age) before they accept','A fake or misleading photo is a permanent ban','Ratings stay hidden until both sides rate, so nobody rates out of fear'].map(t=>`<li><span style="color:var(--good)">${ic('check',16)}</span><span>${t}</span></li>`).join('')}
+    </ul></section>
+  <section class="panel"><h3>Safety on the road</h3>
+    <ul class="list">
+      ${['Plate, car and everyone onboard shown before you confirm','Hosts can never message first, and never see your home address','Switch to "Take me home" at any time and the route changes at once','Fast bans on reports'].map(t=>`<li><span style="color:var(--good)">${ic('check',16)}</span><span>${t}</span></li>`).join('')}
+    </ul></section>
+  <p class="note">Prototype: faces here are placeholders, and alerts, contacts and checks are simulated. No real messages or calls are sent. In an emergency call 112.</p>`;
+}
+function reqCard(r){
+  const d=S.hostDraft,left=seatsLeft(),need=1+(r.friend?1:0);
+  const fv=r.vibes.filter(v=>d.vibe.includes(v));
+  let why='';
+  if(r.status==='new'){
+    if(r.friend&&!d.friendsOk)why='Your plan does not allow extra friends.';
+    else if(r.friend&&d.friendPref==='women'&&r.friend.gender==='Man')why='Your plan is open to women friends only.';
+    else if(need>left)why='Needs '+need+' seat'+(need>1?'s':'')+', you have '+left+'.';
+  }
+  return `<div class="req"><div class="crewline">${av(r.name,52,true)}${r.friend?av(r.friend.name,52,true):''}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">Woman · Face matched · ${r.shows}% show-up · ${r.rating.toFixed(1)} from hosts</div></div></div>
+  <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.name)+'</b>: '+r.friend.gender+', '+r.friend.age+', face matched':'Coming alone'}</div>
+  <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
+  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She confirms at pickup.</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="racc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="rdec" data-id="${r.id}">Decline</button></div>`}</div>`;
+}
+function requestsHTML(){
+  const left=seatsLeft(),items=S.requests.filter(r=>r.status!=='declined');
+  return `<section class="panel"><div class="row"><h3>Requests</h3><span class="tag crew">${left} seat${left===1?'':'s'} left</span></div>
+  <p class="note">Sample requests so you can try it. Real ones arrive once your plan is live. You see each rider and each friend before you accept, and every one is selfie-verified against her ID.</p>
+  ${items.length?items.map(reqCard).join(''):'<p class="muted">No requests right now.</p>'}</section>`;
+}
+function viewHost(){
+  const d=S.hostDraft,venue=VENUES[d.v];
+  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2></div>${cardHTML(h)}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Edit my plan</button>`;}
+  return `<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
+  <section class="panel"><h3>The event</h3>
+    <label class="fld" for="f-event">Which event are you parked at?<select class="inp" id="f-event" data-f="event">${Object.values(EVENTS).map(e=>`<option value="${e.id}" ${d.event===e.id?'selected':''}>${esc(e.name)} at ${esc(e.venue)}</option>`).join('')}</select></label>
+    <label class="fld" for="f-park">Where are you parked?<input class="inp" id="f-park" data-f="park" value="${esc(d.park)}"></label>
+    <label class="fld" for="f-time">Leaving at<input class="inp" id="f-time" type="time" data-f="leaving" value="${esc(d.leaving)}"></label></section>
+  <section class="panel"><h3>You and the car</h3>
+    <label class="fld" for="f-name">Your first name<input class="inp" id="f-name" data-f="name" placeholder="e.g. Kofi A." value="${esc(d.name)}"></label>
+    <div class="two"><label class="fld" for="f-g">I am<select class="inp" id="f-g" data-f="gender">${['Man','Woman'].map(g=>`<option ${d.gender===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="fld" for="f-age">Age<input class="inp" id="f-age" type="number" min="18" max="99" data-f="age" value="${esc(d.age)}"></label></div>
+    <div class="two"><label class="fld" for="f-car">Car<input class="inp" id="f-car" data-f="car" value="${esc(d.car)}"></label><label class="fld" for="f-color">Colour<input class="inp" id="f-color" data-f="color" value="${esc(d.color)}"></label></div>
+    <label class="fld" for="f-plate">Plate number<input class="inp mono" id="f-plate" data-f="plate" value="${esc(d.plate)}"></label></section>
+  <section class="panel"><div class="row"><div><h3>Who is moving with you</h3><div class="note">${d.friends.length+1} in the car including you</div></div>
+    <div class="stepper"><button data-act="fminus" aria-label="Remove a person">${ic('minus',16)}</button><b>${d.friends.length}</b><button data-act="fplus" aria-label="Add a person">${ic('plus',16)}</button></div></div>
+    ${d.friends.map((f,i)=>`<div class="sub"><label class="fld" for="f-fr${i}">Friend ${i+1}<input class="inp" id="f-fr${i}" data-fr="${i}" data-k="n" placeholder="First name and initial" value="${esc(f.n)}"></label>
+      <div class="two"><label class="fld" for="f-fg${i}">Gender<select class="inp" id="f-fg${i}" data-fr="${i}" data-k="g">${['Man','Woman'].map(g=>`<option ${f.g===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="fld" for="f-fa${i}">Age<input class="inp" id="f-fa${i}" type="number" min="18" max="99" data-fr="${i}" data-k="a" value="${esc(f.a)}"></label></div></div>`).join('')}
+    <p class="note">Riders see every name, gender and age on your card. Each person must pass the selfie check.</p></section>
+  <section class="panel"><h3>Seats and rules</h3>
+    <div class="row"><div><b>Seats open for riders</b><div class="note">Each rider and each friend she brings uses one</div></div><div class="stepper"><button data-act="seatminus" aria-label="Fewer seats">${ic('minus',16)}</button><b>${d.seats}</b><button data-act="seatplus" aria-label="More seats">${ic('plus',16)}</button></div></div>
+    <div class="toggle" style="padding:0"><div><b>Riders can bring a friend</b><div class="note">You still see and approve each friend.</div></div><button class="sw" role="switch" aria-checked="${d.friendsOk}" data-act="hfr"></button></div>
+    ${d.friendsOk?`<div><div class="eyebrow" style="margin-bottom:8px">Friends can be</div><div class="chips"><button class="chip" data-act="hfp" data-v="any" aria-pressed="${d.friendPref==='any'}">Women or men</button><button class="chip" data-act="hfp" data-v="women" aria-pressed="${d.friendPref==='women'}">Women only</button></div></div>`:''}
+    <div><div class="eyebrow" style="margin-bottom:8px">Car rules riders agree to</div><div class="chips">${RULES.map(r=>`<button class="chip" data-act="hrule" data-v="${r}" aria-pressed="${d.rules.includes(r)}">${r}</button>`).join('')}</div></div></section>
+  <section class="panel"><h3>Where the night goes</h3>
+    <label class="fld" for="f-v">Next stop<select class="inp" id="f-v" data-f="v">${VENUES.map((v,i)=>`<option value="${i}" ${d.v===i?'selected':''}>${esc(v.n)}</option>`).join('')}</select></label>
+    <p class="note">${esc(venue.note)}</p>
+    <div class="toggle"><div><b>Offer my place as an optional last stop</b><div class="note">Riders only see the area. The address unlocks after she confirms.</div></div><button class="sw" role="switch" aria-checked="${d.house}" data-act="hhouse"></button></div>
+    <div><div class="eyebrow" style="margin-bottom:8px">Vibe. Riders who match show up first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="hvibe" data-v="${v}" aria-pressed="${d.vibe.includes(v)}">${v}</button>`).join('')}</div></div></section>
+  <section class="panel"><h3>Your lifestyle vlog</h3>
+    <label class="fld" for="f-vlog"><span>Upload a short clip</span><input class="inp" id="f-vlog" type="file" accept="video/*" data-f="vlogFile"></label>
+    <p class="note">${d.vlogName?'Selected: '+esc(d.vlogName):'Riders watch this before they choose. Keep it under 60 seconds.'}</p></section>
+  <label class="toggle" style="gap:12px;align-items:flex-start" for="f-ver"><span><b>Everyone in my car has passed the selfie and ID check</b><span class="note" style="display:block">Listings with unverified people are removed.</span></span><input id="f-ver" type="checkbox" data-f="verified" ${d.verified?'checked':''} style="width:22px;height:22px;accent-color:var(--accent);flex:none"></label>
+  <button class="btn" data-act="publish">Publish to tonight's feed</button>
+  ${requestsHTML()}`;
+}
+function personTile(n,g,a,label){return `<div class="pp">${av(n,56,true)}<b>${esc(n)}</b><span class="note">${g}, ${a}${label?'<br>'+label:''}</span></div>`;}
+function viewTrip(){
+  const r=S.req;
+  if(!r)return `<div class="hero"><span class="eyebrow">Trip</span><h2>No ride yet</h2></div><div class="empty"><p>Pick a plan from Tonight. Nothing starts until you confirm, and you can end or reroute at any point.</p><button class="btn" data-act="tab" data-v="tonight" style="width:auto">Browse tonight's plans</button></div>`;
+  const h=hostById(r.hostId),F=r.draft.friendOn?r.draft.friend:null;
+  if(r.status==='pending')return `<div class="hero"><span class="eyebrow">Trip</span><h2>Request sent to ${esc(h.name)}</h2></div><div class="panel status"><div class="live"><i></i>He is looking at your profile${F?' and '+esc(F.name)+'’s':''}</div><p class="muted">He sees your verified photo, first name, age and vibe${F?', plus your friend’s photo, gender and age':''}. Your address stays private. In this demo he accepts in a few seconds.</p><button class="btn ghost" data-act="cancelreq">Cancel request</button></div>`;
+  if(r.status==='accepted'){const L=legsFor(h,r.draft.house);return `<div class="hero"><span class="eyebrow">Trip</span><h2>${esc(h.name)} accepted</h2><p class="muted">Nothing starts until you confirm and both of you pass the pickup photo check.</p></div>
+    <div class="panel"><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div>
+    <div class="crewline"><div class="avs">${h.crew.map(c=>av(c[0],34,true)).join('')}</div><span>${h.crew.length} in the car: ${crewMix(h)}</span></div>
+    <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note">${i?kmTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
+    <div><div class="eyebrow" style="margin-bottom:6px">Car rules you agree to</div><div class="chips">${h.rules.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>
+    <p class="note">Plan will be shared with ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name).join(' and ')||'nobody (turn contacts on in Profile and safety)' }.</p></div>
+    <button class="btn" data-act="confirm">Confirm and go to the pickup check</button><button class="btn ghost" data-act="cancelreq">Not tonight</button>`;}
+  if(r.status==='pickup')return `<div class="hero"><span class="eyebrow">Pickup check</span><h2>Do they look like their photos?</h2><p class="muted">Check before you get in. ${esc(h.name)} checks you too. If anyone does not match, cancel and nothing is held against you.</p></div>
+    <section class="panel"><h3>In the car</h3><div class="pgrid">${h.crew.map(c=>personTile(c[0],c[2],c[3],c[1])).join('')}</div><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div></section>
+    <section class="panel"><h3>Riding with them</h3><div class="pgrid">${personTile(S.me.name,'Woman',S.me.age,'You')}${F?personTile(F.name,F.gender,F.age,'Your friend'):''}</div>
+    <div class="live">${r.hostChecked?`<span style="color:var(--good)">${ic('check',16)}</span>${esc(h.name)} checked you. You match.`:`<i></i>Waiting for ${esc(h.name)} to check you`}</div></section>
+    <button class="btn" data-act="matchok" ${r.hostChecked?'':'disabled'}>They match, start the trip</button>
+    <button class="btn danger" data-act="nomatch">Someone does not match, cancel</button>`;
+  return tripActiveHTML();
+}
+function tripActiveHTML(){
+  const t=S.trip,h=t.host;
+  return `<div class="livebar"><div class="live"><i></i>Live · shared with ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name.split(' ')[0]).join(', ')||'no one'}</div><button class="sos" data-act="sos">SOS</button></div>
+  <div class="map-wrap" id="tripMap">${tripMapHTML()}</div>
+  <div class="stats" id="tripStats">${tripStatsHTML()}</div>
+  <section class="panel"><h3>The plan</h3><ul class="list" id="tripStops">${tripStopsHTML()}</ul></section>
+  <section class="panel"><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div>
+  <div class="crewline"><div class="avs">${h.crew.map(c=>av(c[0])).join('')}</div><span>${t.people} people in the car</span></div></section>
+  <button class="btn ghost" data-act="home" ${t.homing?'disabled':''}>${ic('home',18)}${t.homing?'Heading straight home':'Take me home now'}</button>
+  <details class="demo"><summary>Demo controls</summary><div class="chips">
+    <button class="chip" data-act="simdev">Simulate a wrong turn</button><button class="chip" data-act="simci">Trigger check-in</button>
+    <button class="chip" data-act="speed" data-v="1" aria-pressed="${t.mult===1}">Normal speed</button><button class="chip" data-act="speed" data-v="3" aria-pressed="${t.mult===3}">3x speed</button></div></details>
+  <section class="panel"><h3>Safety feed</h3><ul class="log" id="tripLog">${tripLogHTML()}</ul></section>`;
+}
+function tripCar(){const t=S.trip;const p=posAt(t.route.pts,t.dist);const off=t.devOff;
+  return {x:p.x+(-p.dy)*off,y:p.y+(p.dx)*off,dx:p.dx,dy:p.dy,base:p};}
+function tripMapHTML(){
+  const t=S.trip,c=tripCar();
+  const pts=[...t.route.pts,...t.trail.slice(-2)];
+  const box=boxFor(pts,1.25,50,230);
+  const markers=[];
+  t.stops.forEach((s,i)=>{if(s.skipped)return;
+    if(s.kind==='home')markers.push({kind:'home',pos:s.pos,label:'Your place'});
+    else if(s.kind==='house'&&!s.revealed)markers.push({kind:'fuzz',pos:s.pos,label:'His place'});
+    else markers.push({kind:s.kind==='park'?'park':'stop',glyph:s.kind==='park'?'P':String(i),pos:s.pos,label:s.name});});
+  return mapSVG({box,route:t.route.pts,trail:t.trail,markers,car:c,dev:t.devOff>1?{from:[c.base.x,c.base.y],to:[c.x,c.y]}:null,aria:'Live trip map with planned route and car position'});
+}
+function nextStop(t){return t.stops.find(s=>!s.arrived&&!s.skipped);}
+function tripStatsHTML(){
+  const t=S.trip,rem=Math.max(0,t.route.total-t.dist),n=nextStop(t);
+  const toNext=n?Math.max(0,n.at-t.dist):0;
+  return `<div class="stat"><b>${kmTxt(toNext)}</b><span>to ${n?esc(n.name):'the end'}</span></div><div class="stat"><b>${kmTxt(rem)}</b><span>to drop-off</span></div><div class="stat"><b>${minTxt(rem)}</b><span>arrive home</span></div>`;
+}
+function tripStopsHTML(){
+  const t=S.trip;
+  return t.stops.map((s,i)=>`<li class="stop ${s.arrived?'done':''} ${s.skipped?'skip':''}"><span class="n">${s.arrived?ic('check',14):i+1}</span><span><b>${esc(s.name)}</b><small>${s.kind==='house'&&!s.revealed?esc(s.sub):esc(s.sub)}</small></span><span class="note">${s.skipped?'Skipped':s.arrived?'Done':''}</span></li>`).join('');
+}
+function tripLogHTML(){return S.trip.log.slice().reverse().map(l=>`<li class="${l.k||''}"><b>${l.t}</b><span>${esc(l.m)}</span></li>`).join('');}
+function clock(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function logT(m,k){S.trip.log.push({t:clock(),m,k});}
+
+/* ---------- sheets ---------- */
+function sheetDetail(){
+  const h=hostById(S.draft.id),D=S.draft,F=D.friend,L=legsFor(h,D.house),ev=EVENTS[h.event],first=h.name.split(' ')[0];
+  const pts=L.stops.map(s=>s.pos),box=boxFor(pts,1.6,44,200);
+  const markers=L.stops.map((s,i)=>s.kind==='home'?{kind:'home',pos:s.pos,label:'Your place'}:s.kind==='house'?{kind:'fuzz',pos:s.pos,label:'His place'}:{kind:s.kind==='park'?'park':'stop',glyph:s.kind==='park'?'P':String(i),pos:s.pos,label:s.kind==='park'?ev.venue:s.name});
+  const total=L.route.total,need=D.friendOn?2:1;
+  let block='';
+  if(S.req)block='You already have a ride in progress. Finish or cancel it from the Trip tab first.';
+  else if(D.friendOn&&!F.name.trim())block='Add your friend’s first name.';
+  else if(D.friendOn&&!F.verified)block='Your friend needs to pass the selfie check first.';
+  else if(D.friendOn&&h.friendPref==='women'&&F.gender==='Man')block=first+' is only open to women friends tonight.';
+  else if(need>h.seats)block=first+' has '+h.seats+' seat'+(h.seats===1?'':'s')+' open, you need '+need+'.';
+  const fx=fit(h);
+  const friendUI=!h.friendsOk?`<p class="note">${esc(first)} is not taking extra friends tonight.</p>`:`
+    <div class="toggle" style="padding:0"><div><b>Bring a friend</b><div class="note">${esc(friendPolicy(h))}. ${esc(first)} sees her photo, gender and age before he accepts.</div></div><button class="sw" role="switch" aria-checked="${D.friendOn}" data-act="dfon"></button></div>
+    ${D.friendOn?`<div class="sub">
+      <label class="fld" for="df-name">Friend’s first name<input class="inp" id="df-name" data-df="name" value="${esc(F.name)}"></label>
+      <div class="two"><div><div class="eyebrow" style="margin-bottom:6px">Gender</div><div class="chips">${['Woman','Man'].map(g=>`<button class="chip" data-act="dfg" data-v="${g}" aria-pressed="${F.gender===g}">${g}</button>`).join('')}</div></div>
+      <label class="fld" for="df-age">Age<input class="inp" id="df-age" type="number" min="18" max="99" data-df="age" value="${esc(F.age)}"></label></div>
+      <div class="crewline">${av(F.name||'Friend',44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name||'Your friend')}</b><div class="note">${F.gender}, ${esc(F.age)} · ${F.verified?'Face matched':F.sent?'Checking her selfie…':'Not verified yet'}</div></div>
+      ${F.verified?vb(true):`<button class="btn sm" data-act="dfsend" ${F.sent?'disabled':''}>${F.sent?'Link sent':'Send verify link'}</button>`}</div></div>`:''}`;
+  return `<div class="sheet-h"><div><span class="eyebrow">${esc(ev.name)} · leaving ${esc(h.leaving)}</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px"><h2>${esc(h.name)}</h2>${vb(h.verified)}</div></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <div class="thumb" style="--h:${hue(h.name)};border-radius:14px;aspect-ratio:16/6.5"><div class="tl"><span class="tag">${ic('users',12)}${crewLabel(h)}</span></div><button class="play" data-act="vlog" data-id="${h.id}">${ic('play',14)}Watch vlog</button></div>
+  ${fx.length?`<div class="rule">${ic('check',18)}<span>Fits your vibe: ${esc(fx.join(', '))}</span></div>`:''}
+  <section class="panel"><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div>
+    <div class="row"><span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'} <span class="muted" style="font-weight:400">${h.trips} rides</span></span><span class="note">Parked ${h.parkM} m from the gate</span></div></section>
+  <section class="panel"><div class="row"><h3>In the car</h3><span class="tag crew">${ic('users',13)}${h.crew.length}</span></div>
+    <ul class="list">${h.crew.map(c=>`<li class="crewline">${av(c[0],44,true)}<span style="flex:1;min-width:0"><b>${esc(c[0])}</b><span class="note" style="display:block">${c[2]}, ${c[3]} · ${c[1]}</span></span>${vb(true)}</li>`).join('')}</ul>
+    <p class="note">${esc(seatsLine(h))}</p></section>
+  <div class="map-wrap">${mapSVG({box,route:L.route.pts,markers,aria:'Planned route from pickup to your place'})}</div>
+  <section class="panel"><h3>The plan</h3>
+    <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note" style="text-align:right">${i?kmTxt(s.at-L.stops[i-1].at)+'<br>'+minTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
+    <div class="row" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b>${kmTxt(total)} · about ${minTxt(total)}</b></div></section>
+  <section class="panel"><h3>Car rules</h3><div class="chips">${h.rules.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div><p class="note">You agree to these when you confirm. ${esc(first)} agrees to the same rules for riders.</p></section>
+  <section class="panel"><h3>Your choices</h3>
+    ${h.house?`<div class="toggle" style="padding:0"><div><b>Add his place as a stop</b><div class="note">${ic('lock',12)} Area only (${esc(h.house.area)}). The address unlocks after you confirm.</div></div><button class="sw" role="switch" aria-checked="${D.house}" data-act="dhouse"></button></div>`:'<p class="note">He is not offering a stop at his place tonight.</p>'}
+    ${friendUI}
+    <div><div class="eyebrow" style="margin-bottom:8px">Share this plan with</div><div class="chips">${CONTACTS.map(c=>`<button class="chip" data-act="tglc" data-id="${c.id}" aria-pressed="${S.settings.share[c.id]}">${esc(c.name)}</button>`).join('')}</div></div></section>
+  <section class="panel"><h3>What ${esc(first)} sees about you</h3>
+    <div class="crewline">${av(S.me.name,44,true)}<div style="flex:1;min-width:0"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">Woman · Face matched · ${S.me.shows}% show-up</div></div></div>
+    ${D.friendOn&&F.name.trim()?`<div class="crewline">${av(F.name,44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name)}, ${esc(F.age)}</b><div class="note">${F.gender} · your friend</div></div></div>`:''}
+    <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
+  ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
+  <button class="btn" data-act="request" ${block?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>
+  <p class="note">Nothing starts until you confirm and both sides pass the pickup photo check.</p>`;
+}
+function sheetVlog(){
+  const h=hostById(S.vlog.id),i=S.vlog.i;
+  return `<div class="sheet-h"><div><span class="eyebrow">Vlog preview</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <div class="stories" style="--h:${hue(h.name)}"><div class="bars">${h.vlog.map((_,j)=>`<i class="${j<=i?'on':''}"></i>`).join('')}</div>
+    <button class="tap" style="left:0" data-act="vprev" aria-label="Previous"></button><button class="tap" style="right:0" data-act="vnext" aria-label="Next"></button>
+    <div class="cap">${esc(h.vlog[i])}</div><div style="margin-top:8px;font-size:12px;opacity:.85">${esc(h.color)} ${esc(h.car)} · ${esc(h.vibe.join(' · '))}</div></div>
+  <p class="note">Sample preview. Tap the right side to move on. Real hosts upload a short video.</p>
+  <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>`;
+}
+function sheetDev(){
+  const t=S.trip,off=(t.devOff*KM).toFixed(1);
+  return `<div class="alert"><h2>The car left the route</h2><p>It is ${off} km from the plan. ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name).join(' and ')||'No one'} got an alert with the live location (simulated).</p></div>
+  <button class="btn" data-act="devok">I know where we are, all good</button>
+  <button class="btn ghost" data-act="home">${ic('home',18)}Take me home now</button>
+  <button class="btn danger" data-act="sos">Send SOS</button>`;
+}
+function sheetCheckin(){
+  const c=S.trip.checkin;
+  if(c.expired)return `<div class="alert"><h2>No reply, contacts alerted</h2><p>${CONTACTS.filter(x=>S.settings.share[x.id]).map(x=>x.name).join(' and ')||'Your contacts'} can see your live location (simulated).</p></div><button class="btn" data-act="ciok">I'm fine, cancel the alert</button><button class="btn danger" data-act="sos">Send SOS</button>`;
+  return `<div class="sheet-h"><h2>You good?</h2></div><p class="muted">Tap to let us know. If there's no reply in <b id="ciLeft" class="mono">${Math.ceil(c.left)}</b> seconds, your contacts are alerted.</p>
+  <button class="btn" data-act="ciok">I'm good</button><button class="btn danger" data-act="sos">I need help</button>`;
+}
+function sheetSos(){
+  const t=S.trip;
+  return `<div class="alert"><h2>SOS sent</h2><p>Simulated in this prototype. A real alert would go out right now.</p></div>
+  <ul class="list">${['Live location shared with '+(CONTACTS.map(c=>c.name).join(' and ')), 'Plate '+(t?t.host.plate:'' )+', car and everyone onboard attached','Pull Up safety team notified','Emergency services: call 112'].map(x=>`<li><span style="color:var(--bad)">${ic('alert',16)}</span><span>${esc(x)}</span></li>`).join('')}</ul>
+  <button class="btn ghost" data-act="soscancel">I'm safe, cancel the alert</button>`;
+}
+function sheetDone(){
+  const t=S.trip;
+  return `<div class="sheet-h"><div><span class="eyebrow">Trip complete</span><h2>You're home</h2></div><button class="x" data-act="finish" aria-label="Close">${ic('x',16)}</button></div>
+  <p class="muted">${kmTxt(t.travelled)} travelled with ${esc(t.host.name)}. How did it go?</p>
+  <div class="stars" role="group" aria-label="Rating">${[1,2,3,4,5].map(n=>`<button data-act="star" data-v="${n}" aria-pressed="${S.rating>=n}" aria-label="${n} stars">${ic('star',34)}</button>`).join('')}</div>
+  <p class="note">${esc(t.host.name)} rates you too. Both ratings unlock at the same time, so nobody rates out of fear.</p><button class="btn" data-act="finish">Done</button><button class="btn ghost" data-act="report">Report a problem</button>`;
+}
+function renderSheet(){
+  const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
+  if(!S.sheet){root.innerHTML='';return;}
+  const T={detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  root.innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${T[S.sheet]()}</div></div>`;
+  const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
+}
+function openSheet(n){S.sheet=n;renderSheet();}
+function closeSheet(){S.sheet=null;S._sheetKept=null;renderSheet();}
+function renderView(){
+  const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
+  v.innerHTML=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
+  v.dataset.key=key;v.scrollTop=st;
+}
+function renderAll(){renderHdr();renderView();renderTabs();renderSheet();}
+
+/* ---------- trip engine ---------- */
+let timer=null,last=0;
+function startTrip(){
+  const r=S.req,h=hostById(r.hostId),L=legsFor(h,r.draft.house);
+  const stops=L.stops.map(s=>({...s,arrived:false,skipped:false,revealed:true}));
+  S.trip={host:h,stops,route:L.route,dist:0,travelled:0,devOff:0,dev:false,devAlerted:false,ciDone:false,checkin:null,mult:1,homing:false,sos:false,done:false,
+    people:h.crew.length+1+(r.draft.friendOn?1:0),trail:[stops[0].pos.slice()],log:[]};
+  logT('Plan shared with '+(CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name).join(' and ')||'no contacts'));
+  logT('Route locked. Any change alerts you.','good');
+  logT('Pickup photo check passed by both sides','good');
+  logT('Plate '+h.plate+' and '+S.trip.people+' people confirmed');
+  if(r.draft.house&&h.house)logT('His address unlocked: '+h.house.area+' (shown to you only)');
+  r.status='active';last=performance.now();
+  clearInterval(timer);timer=setInterval(tick,100);
+}
+function tick(){
+  const t=S.trip;if(!t||t.done){clearInterval(timer);return;}
+  const now=performance.now(),dt=Math.min((now-last)/1000,0.5);last=now;
+  const v=7*t.mult*dt;t.dist=Math.min(t.route.total,t.dist+v);t.travelled+=v;
+  if(t.dev)t.devOff=Math.min(60,t.devOff+14*dt);else t.devOff=Math.max(0,t.devOff-30*dt);
+  const c=tripCar();const lp=t.trail[t.trail.length-1];
+  if(Math.abs(lp[0]-c.x)+Math.abs(lp[1]-c.y)>3)t.trail.push([c.x,c.y]);
+  t.stops.forEach(s=>{if(!s.arrived&&!s.skipped&&t.dist>=s.at-0.5){s.arrived=true;if(s.kind!=='park'&&s.kind!=='home')logT('Arrived at '+s.name);if(s.kind==='home')logT('Dropped off at your place','good');}});
+  if(!t.devAlerted&&t.dev&&t.devOff*KM>=S.settings.threshold){t.devAlerted=true;logT('Car is '+(t.devOff*KM).toFixed(1)+' km off route. Contacts alerted.','bad');openSheet('dev');}
+  if(!t.ciDone&&S.settings.checkin&&t.dist/t.route.total>=0.4){startCheckin();}
+  if(t.checkin&&!t.checkin.expired&&S.sheet==='checkin'){t.checkin.left-=dt;const e=$('#ciLeft');if(e)e.textContent=Math.max(0,Math.ceil(t.checkin.left));if(t.checkin.left<=0){t.checkin.expired=true;logT('No check-in reply. Contacts alerted.','bad');renderSheet();}}
+  if(t.dist>=t.route.total&&!t.done){t.done=true;clearInterval(timer);S.rating=0;openSheet('done');renderTabs();}
+  if(S.tab==='trip'&&S.role==='rider'){
+    const m=$('#tripMap'),s=$('#tripStats'),p=$('#tripStops'),l=$('#tripLog');
+    if(m)m.innerHTML=tripMapHTML();if(s)s.innerHTML=tripStatsHTML();if(p)p.innerHTML=tripStopsHTML();if(l)l.innerHTML=tripLogHTML();
+  }
+}
+function startCheckin(){const t=S.trip;t.ciDone=true;t.checkin={left:10,expired:false};logT('Check-in sent: "You good?"');openSheet('checkin');}
+function sendHome(){
+  const t=S.trip;if(!t||t.homing)return;
+  const c=tripCar(),p=c.base;
+  const horizFirst=p.dx!==0||p.dy===0;
+  const start=[Math.round(p.x*10)/10,Math.round(p.y*10)/10];
+  const mid=horizFirst?[HOME[0],start[1]]:[start[0],HOME[1]];
+  const pts=[start];[mid,HOME].forEach(q=>{if(!same(q,pts[pts.length-1]))pts.push(q);});
+  const total=pts.reduce((a,q,i)=>i?a+man(q,pts[i-1]):0,0);
+  t.stops.forEach(s=>{if(!s.arrived&&s.kind!=='home')s.skipped=true;});
+  const home=t.stops.find(s=>s.kind==='home');home.at=total;
+  t.route={pts,at:[0,total],total};t.dist=0;t.homing=true;t.dev=false;t.devAlerted=false;t.devOff=0;
+  logT('You chose "Take me home". Route changed to go straight to your place.','good');
+}
+function endTrip(){clearInterval(timer);S.trip=null;S.req=null;S.sheet=null;S.tab='tonight';renderAll();}
+
+/* ---------- events ---------- */
+function act(a,el,ev){
+  const v=el.dataset.v,id=el.dataset.id;
+  switch(a){
+    case 'role':S.role=v;renderAll();break;
+    case 'tab':S.tab=v;if(S.role==='host')S.role='rider';renderAll();break;
+    case 'evt':S.event=v;renderView();break;
+    case 'grp':S.group=Number(v);renderView();break;
+    case 'open':S.draft=newDraft(id);openSheet('detail');break;
+    case 'vlog':S.vlog={id,i:0};openSheet('vlog');break;
+    case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
+    case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
+    case 'close':closeSheet();break;
+    case 'scrim':if(el===ev.target&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();break;
+    case 'dhouse':S.draft.house=!S.draft.house;renderSheet();break;
+    case 'dfon':S.draft.friendOn=!S.draft.friendOn;renderSheet();break;
+    case 'dfg':S.draft.friend.gender=v;renderSheet();break;
+    case 'dfsend':{const f=S.draft.friend;if(!f.name.trim()){toast('Add her first name first');break;}f.sent=true;renderSheet();
+      setTimeout(()=>{f.verified=true;if(S.sheet==='detail')renderSheet();toast(f.name+' passed the selfie check (demo)');},1800);break;}
+    case 'tglc':S.settings.share[id]=!S.settings.share[id];S.sheet==='detail'?renderSheet():renderView();break;
+    case 'request':S.req={hostId:S.draft.id,status:'pending',draft:JSON.parse(JSON.stringify(S.draft))};closeSheet();S.tab='trip';renderAll();
+      setTimeout(()=>{if(S.req&&S.req.status==='pending'){S.req.status='accepted';toast(hostById(S.req.hostId).name+' accepted. Your turn to confirm.');renderView();renderTabs();}},3000);break;
+    case 'cancelreq':S.req=null;renderAll();break;
+    case 'confirm':S.req.status='pickup';S.req.hostChecked=false;renderAll();
+      setTimeout(()=>{if(S.req&&S.req.status==='pickup'){S.req.hostChecked=true;renderView();}},2000);break;
+    case 'matchok':startTrip();renderAll();break;
+    case 'nomatch':S.req=null;toast('Cancelled with no penalty. Reported for review (simulated).');renderAll();break;
+    case 'mevibe':{const a=S.me.vibes,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'seatplus':S.hostDraft.seats=Math.min(6,S.hostDraft.seats+1);renderView();break;
+    case 'seatminus':S.hostDraft.seats=Math.max(1,S.hostDraft.seats-1);renderView();break;
+    case 'hfr':S.hostDraft.friendsOk=!S.hostDraft.friendsOk;renderView();break;
+    case 'hfp':S.hostDraft.friendPref=v;renderView();break;
+    case 'hrule':{const a=S.hostDraft.rules,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'racc':{const r=S.requests.find(x=>x.id===id);r.status='accepted';toast(r.name+' accepted. She confirms at pickup.');renderView();break;}
+    case 'rdec':{const r=S.requests.find(x=>x.id===id);r.status='declined';renderView();break;}
+    case 'sos':if(S.trip){S.trip.sos=true;logT('SOS sent to contacts and the safety team (simulated)','bad');}openSheet('sos');break;
+    case 'soscancel':if(S.trip){S.trip.sos=false;S.trip.dev=false;logT('SOS cancelled by you','good');last=performance.now();}closeSheet();renderView();break;
+    case 'home':sendHome();closeSheet();renderView();break;
+    case 'devok':S.trip.dev=false;S.trip.devAlerted=false;logT('You confirmed all good. Car is back on route.','good');closeSheet();break;
+    case 'ciok':S.trip.checkin=null;logT('You replied "I\'m good"','good');closeSheet();break;
+    case 'simdev':if(S.trip&&!S.trip.done){S.trip.dev=true;toast('The car is drifting off the route');}break;
+    case 'simci':if(S.trip&&!S.trip.done){startCheckin();}break;
+    case 'speed':if(S.trip){S.trip.mult=Number(v);renderView();}break;
+    case 'finish':endTrip();break;
+    case 'star':S.rating=Number(v);renderSheet();break;
+    case 'report':toast('Report started. A reviewer follows up (simulated).');break;
+    case 'thr':S.settings.threshold=Number(v);renderView();break;
+    case 'tglchk':S.settings.checkin=!S.settings.checkin;renderView();break;
+    case 'fplus':S.hostDraft.friends.push({n:'',g:'Man',a:'27'});S.hostDraft.friends=S.hostDraft.friends.slice(0,7);renderView();break;
+    case 'fminus':S.hostDraft.friends.pop();renderView();break;
+    case 'hhouse':S.hostDraft.house=!S.hostDraft.house;renderView();break;
+    case 'hvibe':{const a=S.hostDraft.vibe;const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'publish':publish();break;
+    case 'seerider':S.role='rider';S.tab='tonight';S.event=S.posted.event;renderAll();break;
+    case 'editplan':S.posted=null;renderView();break;
+  }
+}
+function publish(){
+  const d=S.hostDraft;
+  if(!d.name.trim()){toast('Add your name first');$('#f-name')&&$('#f-name').focus();return;}
+  if(!d.verified){toast('Confirm that everyone in the car passed the selfie check');return;}
+  const venue=VENUES[d.v],nm=d.name.trim();
+  const h={id:'me',name:nm,rating:0,trips:0,car:d.car,color:d.color,plate:d.plate.toUpperCase(),event:d.event,parkDesc:d.park,parkM:100,
+    crew:[[nm,'Driver',d.gender,Number(d.age)||27],...d.friends.map((f,i)=>[f.n.trim()||'Friend '+(i+1),'Friend',f.g,Number(f.a)||27])],
+    seats:d.seats,friendsOk:d.friendsOk,friendPref:d.friendPref,rules:d.rules.length?d.rules.slice():['Sober driver'],
+    v:d.v,house:d.house?{area:'Your area',pos:HOUSES[4]}:null,
+    vibe:d.vibe.length?d.vibe.slice():['Chill'],leaving:d.leaving.replace(/^0/,'')+' AM',vlog:['Tonight with '+nm,venue.n+' next','Everyone gets home safe'],verified:true};
+  const ix=hosts.findIndex(x=>x.id==='me');if(ix>-1)hosts.splice(ix,1);
+  hosts.unshift(h);S.posted=h;renderView();toast('Your plan is live');
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  act(el.dataset.act,el,e);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.sheet&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();
+  if(e.key==='Enter'){const g=e.target.closest&&e.target.closest('g[data-act]');if(g)act(g.dataset.act,g,e);}
+});
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
+  if(el.dataset.df){S.draft.friend[el.dataset.df]=el.value;return;}
+  const f=el.dataset.f;if(!f)return;
+  if(f==='verified')S.hostDraft.verified=el.checked;
+  else if(f==='vlogFile'){S.hostDraft.vlogName=el.files&&el.files[0]?el.files[0].name:'';renderView();}
+  else if(f==='v')S.hostDraft.v=Number(el.value);
+  else S.hostDraft[f]=el.value;
+});
+renderAll();
+})();
+</script>
+</body></html>
