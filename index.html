@@ -208,6 +208,11 @@ details.demo .chips{margin-top:10px}
 }
 </style>
 
+<form name="waitlist" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden aria-hidden="true">
+  <input type="hidden" name="form-name" value="waitlist">
+  <input name="bot-field"><input name="role"><input name="use"><input name="name"><input name="contact"><input name="city">
+  <textarea name="safe"></textarea><textarea name="notes"></textarea>
+</form>
 <div class="app" id="app">
   <header class="hdr" id="hdr"></header>
   <main class="view" id="view"></main>
@@ -240,7 +245,8 @@ const IC={
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   map:'<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   list:'<path d="M4 6h16M4 12h16M4 18h10"/>',
-  upload:'<path d="M12 16V5M7 10l5-5 5 5M5 20h14"/>'
+  upload:'<path d="M12 16V5M7 10l5-5 5 5M5 20h14"/>',
+  chat:'<path d="M4 5h16v11H9l-5 4z"/>'
 };
 const ic=(n,s)=>`<svg class="ic" width="${s||18}" height="${s||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 const hue=n=>{let h=0;for(const c of n)h=(h*37+c.charCodeAt(0))%360;return h;};
@@ -358,7 +364,8 @@ const S={
     {id:'q3',name:'Maame K.',age:25,shows:99,rating:5.0,vibes:['Dinner','Quiet'],friend:{name:'Jay',gender:'Man',age:27},status:'new'}
   ],
   hostDraft:{event:'a',name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
-  posted:null,vlog:{id:null,i:0}
+  posted:null,vlog:{id:null,i:0},
+  fb:{role:'Rider',use:'Yes',name:'',contact:'',city:'Accra',safe:'',notes:'',sent:false,busy:false,err:''}
 };
 let toastT=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2600);}
@@ -386,7 +393,8 @@ const legsFor=(h,withHouse)=>{
 /* ---------- views ---------- */
 function renderHdr(){
   $('#hdr').innerHTML=`<div class="logo"><i><b></b><b></b></i>Pull Up</div>
-  <div class="seg" role="group" aria-label="Switch side"><button data-act="role" data-v="rider" aria-pressed="${S.role==='rider'}">Riding</button><button data-act="role" data-v="host" aria-pressed="${S.role==='host'}">Hosting</button></div>`;
+  <div style="display:flex;align-items:center;gap:8px"><button class="x" data-act="fb" aria-label="Give feedback or join the waitlist" title="Feedback">${ic('chat',16)}</button>
+  <div class="seg" role="group" aria-label="Switch side"><button data-act="role" data-v="rider" aria-pressed="${S.role==='rider'}">Riding</button><button data-act="role" data-v="host" aria-pressed="${S.role==='host'}">Hosting</button></div></div>`;
 }
 function renderTabs(){
   const T=[['tonight','Tonight','list'],['map','Map','map'],['trip','Trip','route'],['safety','Safety','shield']];
@@ -420,7 +428,8 @@ function viewTonight(){
   <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
-  ${list.length?'<div class="feed">'+list.map(cardHTML).join('')+'</div>':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'}`;
+  ${list.length?'<div class="feed">'+list.map(cardHTML).join('')+'</div>':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'}
+  <section class="panel"><h3>Help shape Pull Up</h3><p class="muted">This is an early prototype. Tell us what feels right, what worries you and whether you would use it. Leave your WhatsApp or email to hear when it opens.</p><button class="btn" data-act="fb">Share feedback or join the waitlist</button></section>`;
 }
 function viewMap(){
   const pts=[EVENTS.a.pos,EVENTS.b.pos,...VENUES.map(v=>v.pos),HOME];
@@ -657,6 +666,23 @@ function sheetSos(){
   <ul class="list">${['Live location shared with '+(CONTACTS.map(c=>c.name).join(' and ')),'Plate '+(t?t.host.plate:'')+', car and everyone onboard attached','Pull Up safety team notified','Emergency services: call 112'].map(x=>`<li><span style="color:var(--bad)">${ic('alert',16)}</span><span>${esc(x)}</span></li>`).join('')}</ul>
   <button class="btn ghost" data-act="soscancel">I'm safe, cancel the alert</button>`;
 }
+function sheetFb(){
+  const f=S.fb;
+  const head=(e,t)=>`<div class="sheet-h"><div><span class="eyebrow">${e}</span><h2>${t}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>`;
+  if(f.sent)return head('Thank you','Got it')+`<p class="muted">Your answers help decide what gets built next.${f.contact?' We will message you when Pull Up opens.':''}</p><button class="btn" data-act="close">Back to the app</button>`;
+  const ch=(k,o)=>`<div class="chips">${o.map(x=>`<button class="chip" data-act="fbset" data-k="${k}" data-v="${x}" aria-pressed="${f[k]===x}">${x}</button>`).join('')}</div>`;
+  return head('Feedback and waitlist','Tell us what you think')+`<p class="muted">Pull Up is a prototype. Nothing is booked and no one is contacted unless you leave your details below.</p>
+  <div><div class="eyebrow" style="margin-bottom:8px">I would be a</div>${ch('role',['Rider','Host','Either'])}</div>
+  <div><div class="eyebrow" style="margin-bottom:8px">Would you use this?</div>${ch('use',['Yes','Maybe','No'])}</div>
+  <label class="fld" for="fb-safe">What would make you feel safest?<textarea class="inp" id="fb-safe" rows="3" data-fb="safe">${esc(f.safe)}</textarea></label>
+  <label class="fld" for="fb-notes">Anything confusing, missing or worrying?<textarea class="inp" id="fb-notes" rows="3" data-fb="notes">${esc(f.notes)}</textarea></label>
+  <div class="two"><label class="fld" for="fb-name">First name (optional)<input class="inp" id="fb-name" data-fb="name" value="${esc(f.name)}"></label>
+  <label class="fld" for="fb-city">City<input class="inp" id="fb-city" data-fb="city" value="${esc(f.city)}"></label></div>
+  <label class="fld" for="fb-contact">WhatsApp number or email (optional)<input class="inp" id="fb-contact" data-fb="contact" value="${esc(f.contact)}"></label>
+  <p class="note">We only use your contact to tell you when Pull Up opens. We do not share it.</p>
+  ${f.err?`<p class="note" style="color:var(--bad)">${esc(f.err)}</p>`:''}
+  <button class="btn" data-act="fbsend" ${f.busy?'disabled':''}>${f.busy?'Sending…':'Send'}</button>`;
+}
 function sheetDone(){
   const t=S.trip;
   return `<div class="sheet-h"><div><span class="eyebrow">Trip complete</span><h2>You're home</h2></div><button class="x" data-act="finish" aria-label="Close">${ic('x',16)}</button></div>
@@ -667,7 +693,7 @@ function sheetDone(){
 function renderSheet(){
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
-  const T={detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  const T={fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
   root.innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${T[S.sheet]()}</div></div>`;
   const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
 }
@@ -743,6 +769,16 @@ function act(a,el,ev){
     case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
     case 'close':closeSheet();break;
+    case 'fb':S.fb.sent=false;S.fb.err='';openSheet('fb');break;
+    case 'fbset':S.fb[el.dataset.k]=v;renderSheet();break;
+    case 'fbsend':{const f=S.fb;
+      if(!f.safe.trim()&&!f.notes.trim()&&!f.contact.trim()){f.err='Write a line of feedback or leave your contact first.';renderSheet();break;}
+      f.busy=true;f.err='';renderSheet();
+      const body=new URLSearchParams({'form-name':'waitlist',role:f.role,use:f.use,name:f.name,contact:f.contact,city:f.city,safe:f.safe,notes:f.notes}).toString();
+      fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body})
+        .then(r=>{if(!r.ok)throw new Error('bad');f.sent=true;f.busy=false;if(S.sheet==='fb')renderSheet();})
+        .catch(()=>{f.busy=false;f.err='Could not send. Check your connection and try again.';if(S.sheet==='fb')renderSheet();});
+      break;}
     case 'scrim':if(el===ev.target&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();break;
     case 'dhouse':S.draft.house=!S.draft.house;renderSheet();break;
     case 'dfon':S.draft.friendOn=!S.draft.friendOn;renderSheet();break;
@@ -812,6 +848,7 @@ document.addEventListener('input',e=>{
   const el=e.target;
   if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
   if(el.dataset.df){S.draft.friend[el.dataset.df]=el.value;return;}
+  if(el.dataset.fb){S.fb[el.dataset.fb]=el.value;return;}
   const f=el.dataset.f;if(!f)return;
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){S.hostDraft.vlogName=el.files&&el.files[0]?el.files[0].name:'';renderView();}
