@@ -45,7 +45,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .seg button{padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;color:var(--ink-2)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .view{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
-.view>*{flex:none}
+.view>*{flex:none;width:100%;max-width:1040px;margin-inline:auto}
 .sheet>*{flex:none}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface)}
 .tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-size:11px;font-weight:700;color:var(--ink-2);position:relative}
@@ -179,6 +179,33 @@ details.demo .chips{margin-top:10px}
 .hscroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
 .mini{flex:none;width:200px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:4px}
 @media (max-width:420px){.two{grid-template-columns:1fr}}
+.feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px;align-items:start}
+.split,.tripgrid{display:flex;flex-direction:column;gap:16px}
+.tcol,.narrow{display:flex;flex-direction:column;gap:16px;min-width:0}
+.view>.narrow{max-width:720px}
+@media (min-width:640px){
+  .app{max-width:760px}
+  .view{padding:20px 24px}
+  .scrim{align-items:center;padding:16px}
+  .sheet{max-width:600px;border-radius:20px;max-height:92%}
+}
+@media (min-width:900px){
+  .app{max-width:1240px;display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"hdr hdr" "tabs view"}
+  .hdr{grid-area:hdr;padding:14px 28px}
+  .tabs{grid-area:tabs;display:flex;flex-direction:column;align-content:start;gap:4px;padding:16px 12px;border-top:0;border-right:1px solid var(--line)}
+  .tabs button{flex-direction:row;justify-content:flex-start;gap:12px;padding:12px 14px;border-radius:12px;font-size:14px}
+  .tabs button[aria-current="page"]{background:var(--accent-soft)}
+  .tabs button[aria-current="page"]::before{display:none}
+  .tabs .dot{top:50%;margin-top:-4px;left:auto;right:14px}
+  .view{grid-area:view;padding:28px 36px;gap:20px}
+  h1{font-size:38px}
+  .split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);align-items:start}
+  .split .hscroll{flex-direction:column;overflow:visible}
+  .split .mini{width:auto}
+  .tripgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr);grid-template-areas:"map plan" "log plan";grid-template-rows:auto 1fr;align-items:start;gap:20px}
+  .tmap{grid-area:map}.tplan{grid-area:plan}.tlog{grid-area:log}
+  .toast{bottom:24px}
+}
 </style>
 
 <div class="app" id="app">
@@ -194,7 +221,7 @@ details.demo .chips{margin-top:10px}
 'use strict';
 const KM=0.02, KMH=30;                       // 40 map units = 0.8 km; city driving speed
 const $=(s,r)=>(r||document).querySelector(s);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const IC={
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/>',
   check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
@@ -335,6 +362,7 @@ const S={
 };
 let toastT=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2600);}
+const wide=()=>window.matchMedia('(min-width:900px)').matches;
 const hostById=id=>hosts.find(h=>h.id===id);
 const newDraft=id=>({id,house:false,friendOn:false,friend:{name:'',gender:'Woman',age:'24',sent:false,verified:false}});
 const RULES=['Sober driver','No smoking','No outside drinks','Seatbelts on','Respect the playlist'];
@@ -392,11 +420,11 @@ function viewTonight(){
   <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
-  ${list.length?list.map(cardHTML).join(''):'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'}`;
+  ${list.length?'<div class="feed">'+list.map(cardHTML).join('')+'</div>':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'}`;
 }
 function viewMap(){
   const pts=[EVENTS.a.pos,EVENTS.b.pos,...VENUES.map(v=>v.pos),HOME];
-  const box=boxFor(pts,0.9,36,300);
+  const box=boxFor(pts,wide()?1.5:0.9,66,300);
   const markers=[];
   markers.push({kind:'home',pos:HOME,label:'Your place'});
   Object.values(EVENTS).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.venue}));
@@ -409,8 +437,8 @@ function viewMap(){
   });
   const order=['stop','event','home','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>Who is parked where</h2><p class="muted">Each amber pin is a host parked near the event. The number on the pin is how many people are in that car. Tap one to see the full plan.</p></div>
-  <div class="map-wrap">${mapSVG({box,markers,aria:'Map of events, parked hosts and next stops'})}</div>
-  <div class="hscroll">${hosts.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="note">${h.parkM} m from ${esc(EVENTS[h.event].venue)}</span></button>`).join('')}</div>
+  <div class="split"><div class="map-wrap">${mapSVG({box,markers,aria:'Map of events, parked hosts and next stops'})}</div>
+  <div class="hscroll">${hosts.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="note">${h.parkM} m from ${esc(EVENTS[h.event].venue)}</span></button>`).join('')}</div></div>
   <p class="note">Sample map with made-up places. Real hosts appear here once they post a plan.</p>`;
 }
 function viewSafety(){
@@ -502,7 +530,7 @@ function viewTrip(){
     <div class="crewline"><div class="avs">${h.crew.map(c=>av(c[0],34,true)).join('')}</div><span>${h.crew.length} in the car: ${crewMix(h)}</span></div>
     <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note">${i?kmTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
     <div><div class="eyebrow" style="margin-bottom:6px">Car rules you agree to</div><div class="chips">${h.rules.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>
-    <p class="note">Plan will be shared with ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name).join(' and ')||'nobody (turn contacts on in Profile and safety)' }.</p></div>
+    <p class="note">Plan will be shared with ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name).join(' and ')||'nobody (turn contacts on in Profile and safety)'}.</p></div>
     <button class="btn" data-act="confirm">Confirm and go to the pickup check</button><button class="btn ghost" data-act="cancelreq">Not tonight</button>`;}
   if(r.status==='pickup')return `<div class="hero"><span class="eyebrow">Pickup check</span><h2>Do they look like their photos?</h2><p class="muted">Check before you get in. ${esc(h.name)} checks you too. If anyone does not match, cancel and nothing is held against you.</p></div>
     <section class="panel"><h3>In the car</h3><div class="pgrid">${h.crew.map(c=>personTile(c[0],c[2],c[3],c[1])).join('')}</div><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div></section>
@@ -515,23 +543,25 @@ function viewTrip(){
 function tripActiveHTML(){
   const t=S.trip,h=t.host;
   return `<div class="livebar"><div class="live"><i></i>Live · shared with ${CONTACTS.filter(c=>S.settings.share[c.id]).map(c=>c.name.split(' ')[0]).join(', ')||'no one'}</div><button class="sos" data-act="sos">SOS</button></div>
-  <div class="map-wrap" id="tripMap">${tripMapHTML()}</div>
-  <div class="stats" id="tripStats">${tripStatsHTML()}</div>
-  <section class="panel"><h3>The plan</h3><ul class="list" id="tripStops">${tripStopsHTML()}</ul></section>
+  <div class="tripgrid">
+  <div class="tcol tmap"><div class="map-wrap" id="tripMap">${tripMapHTML()}</div>
+  <div class="stats" id="tripStats">${tripStatsHTML()}</div></div>
+  <div class="tcol tplan"><section class="panel"><h3>The plan</h3><ul class="list" id="tripStops">${tripStopsHTML()}</ul></section>
   <section class="panel"><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div>
-  <div class="crewline"><div class="avs">${h.crew.map(c=>av(c[0])).join('')}</div><span>${t.people} people in the car</span></div></section>
+  <div class="crewline"><div class="avs">${h.crew.map(c=>av(c[0],34,true)).join('')}</div><span>${t.people} people in the car</span></div></section>
   <button class="btn ghost" data-act="home" ${t.homing?'disabled':''}>${ic('home',18)}${t.homing?'Heading straight home':'Take me home now'}</button>
   <details class="demo"><summary>Demo controls</summary><div class="chips">
     <button class="chip" data-act="simdev">Simulate a wrong turn</button><button class="chip" data-act="simci">Trigger check-in</button>
-    <button class="chip" data-act="speed" data-v="1" aria-pressed="${t.mult===1}">Normal speed</button><button class="chip" data-act="speed" data-v="3" aria-pressed="${t.mult===3}">3x speed</button></div></details>
-  <section class="panel"><h3>Safety feed</h3><ul class="log" id="tripLog">${tripLogHTML()}</ul></section>`;
+    <button class="chip" data-act="speed" data-v="1" aria-pressed="${t.mult===1}">Normal speed</button><button class="chip" data-act="speed" data-v="3" aria-pressed="${t.mult===3}">3x speed</button></div></details></div>
+  <div class="tcol tlog"><section class="panel"><h3>Safety feed</h3><ul class="log" id="tripLog">${tripLogHTML()}</ul></section></div>
+  </div>`;
 }
 function tripCar(){const t=S.trip;const p=posAt(t.route.pts,t.dist);const off=t.devOff;
   return {x:p.x+(-p.dy)*off,y:p.y+(p.dx)*off,dx:p.dx,dy:p.dy,base:p};}
 function tripMapHTML(){
   const t=S.trip,c=tripCar();
   const pts=[...t.route.pts,...t.trail.slice(-2)];
-  const box=boxFor(pts,1.25,50,230);
+  const box=boxFor(pts,wide()?1.5:1.25,50,230);
   const markers=[];
   t.stops.forEach((s,i)=>{if(s.skipped)return;
     if(s.kind==='home')markers.push({kind:'home',pos:s.pos,label:'Your place'});
@@ -624,7 +654,7 @@ function sheetCheckin(){
 function sheetSos(){
   const t=S.trip;
   return `<div class="alert"><h2>SOS sent</h2><p>Simulated in this prototype. A real alert would go out right now.</p></div>
-  <ul class="list">${['Live location shared with '+(CONTACTS.map(c=>c.name).join(' and ')), 'Plate '+(t?t.host.plate:'' )+', car and everyone onboard attached','Pull Up safety team notified','Emergency services: call 112'].map(x=>`<li><span style="color:var(--bad)">${ic('alert',16)}</span><span>${esc(x)}</span></li>`).join('')}</ul>
+  <ul class="list">${['Live location shared with '+(CONTACTS.map(c=>c.name).join(' and ')),'Plate '+(t?t.host.plate:'')+', car and everyone onboard attached','Pull Up safety team notified','Emergency services: call 112'].map(x=>`<li><span style="color:var(--bad)">${ic('alert',16)}</span><span>${esc(x)}</span></li>`).join('')}</ul>
   <button class="btn ghost" data-act="soscancel">I'm safe, cancel the alert</button>`;
 }
 function sheetDone(){
@@ -645,7 +675,9 @@ function openSheet(n){S.sheet=n;renderSheet();}
 function closeSheet(){S.sheet=null;S._sheetKept=null;renderSheet();}
 function renderView(){
   const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
-  v.innerHTML=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
+  const html=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
+  const narrow=S.role==='host'||S.tab==='safety'||(S.tab==='trip'&&!(S.req&&S.req.status==='active'));
+  v.innerHTML=narrow?`<div class="narrow">${html}</div>`:html;
   v.dataset.key=key;v.scrollTop=st;
 }
 function renderAll(){renderHdr();renderView();renderTabs();renderSheet();}
@@ -787,6 +819,8 @@ document.addEventListener('input',e=>{
   else S.hostDraft[f]=el.value;
 });
 renderAll();
+const mq=window.matchMedia('(min-width:900px)');
+if(mq.addEventListener)mq.addEventListener('change',()=>renderAll());
 })();
 </script>
 </body></html>
