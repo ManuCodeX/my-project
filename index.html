@@ -86,6 +86,7 @@ p{margin:0}
 .avs .av+.av{margin-left:-8px}
 .av svg.p{display:block;width:100%;height:100%;border-radius:50%}
 .av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.av img.p{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .tag.fit{background:var(--good);color:var(--bg)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
 .pp{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;padding:12px 8px;border:1px solid var(--line);border-radius:12px;min-width:0}
@@ -221,9 +222,15 @@ details.demo .chips{margin-top:10px}
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
 'use strict';
+/* Paste your Supabase project values here. Both are safe to publish: the anon key is public and the database rules protect the data.
+   Leave them empty and the app runs in demo mode with no sign-in. */
+const SUPABASE_URL='';
+const SUPABASE_ANON_KEY='';
+const SB=(window.supabase&&SUPABASE_URL&&SUPABASE_ANON_KEY)?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 const KM=0.02, KMH=30;                       // 40 map units = 0.8 km; city driving speed
 const $=(s,r)=>(r||document).querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -357,7 +364,8 @@ const S={
   role:'rider',tab:'tonight',event:'a',group:99,
   sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
-  me:{name:'Adjoa',age:24,shows:97,vibes:['Dinner','Chill','Music']},
+  me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
+  auth:{user:null,status:'idle',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[]}},
   requests:[
     {id:'q1',name:'Naa A.',age:23,shows:97,rating:4.9,vibes:['Dinner','Chill','Music'],friend:{name:'Esi',gender:'Woman',age:24},status:'new'},
     {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
@@ -370,6 +378,10 @@ const S={
 let toastT=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2600);}
 const wide=()=>window.matchMedia('(min-width:900px)').matches;
+const DEMO_ME={name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']};
+const meGender=()=>S.me.gender||'Woman';
+const meTrust=()=>S.me.real?'Photo added · ID check coming soon':'Face matched · '+S.me.shows+'% show-up';
+const meAv=z=>S.me.photo?`<span class="av" style="width:${z}px;height:${z}px;background:var(--surface-2)"><img class="p" src="${esc(S.me.photo)}" alt="Your photo"></span>`:av(S.me.name,z,!S.me.real);
 const hostById=id=>hosts.find(h=>h.id===id);
 const newDraft=id=>({id,house:false,friendOn:false,friend:{name:'',gender:'Woman',age:'24',sent:false,verified:false}});
 const RULES=['Sober driver','No smoking','No outside drinks','Seatbelts on','Respect the playlist'];
@@ -450,13 +462,47 @@ function viewMap(){
   <div class="hscroll">${hosts.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="note">${h.parkM} m from ${esc(EVENTS[h.event].venue)}</span></button>`).join('')}</div></div>
   <p class="note">Sample map with made-up places. Real hosts appear here once they post a plan.</p>`;
 }
+function profilePanel(){
+  const A=S.auth;
+  const vibeChips=(sel,act)=>`<div class="chips">${VIBES.map(v=>`<button class="chip" data-act="${act}" data-v="${v}" aria-pressed="${sel.includes(v)}">${v}</button>`).join('')}</div>`;
+  if(!SB){
+    return `<section class="panel"><h3>Your profile</h3><div class="crewline">${meAv(56)}<div style="flex:1"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">${meGender()} · ${meTrust()}</div></div></div>
+    <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div>${vibeChips(S.me.vibes,'mevibe')}</div>
+    <p class="note">Sample profile. Hosts see your first name, age, photo, vibe and show-up rate. They never see your surname, number or home address.</p></section>`;
+  }
+  if(!A.user){
+    return `<section class="panel"><h3>Create your profile</h3><p class="muted">Sign in with your email. We send you a link, so there is no password to remember.</p>
+    <label class="fld" for="au-email">Email<input class="inp" id="au-email" type="email" autocomplete="email" data-au="email" value="${esc(A.email)}"></label>
+    ${A.status==='sent'?`<div class="rule">${ic('check',18)}<span>Check your inbox for the sign-in link, then open it on this device.</span></div>`:''}
+    ${A.err?`<p class="note" style="color:var(--bad)">${esc(A.err)}</p>`:''}
+    <button class="btn" data-act="ausend" ${A.status==='sending'?'disabled':''}>${A.status==='sending'?'Sending…':A.status==='sent'?'Send the link again':'Email me a sign-in link'}</button>
+    <p class="note">Your email is only used to sign you in. The rest of the app below still shows sample data.</p></section>`;
+  }
+  if(A.editing||!A.profile){
+    const f=A.form;
+    const prev=A.preview||S.me.photo||'';
+    return `<section class="panel"><h3>${A.profile?'Edit your profile':'Set up your profile'}</h3>
+    <div class="crewline"><span class="av" style="width:72px;height:72px;background:var(--surface-2)">${prev?`<img class="p" src="${esc(prev)}" alt="Your photo">`:'<svg class="p" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="16" r="7" style="fill:var(--ink-2)"/><path d="M6 42c0-10 6-15 14-15s14 5 14 15z" style="fill:var(--ink-2)"/></svg>'}</span>
+    <label class="fld" for="au-photo" style="flex:1;min-width:0">Photo of your face (required)<input class="inp" id="au-photo" type="file" accept="image/*" data-au-file="1"></label></div>
+    <label class="fld" for="au-name">First name<input class="inp" id="au-name" data-pf="first_name" value="${esc(f.first_name)}" maxlength="40"></label>
+    <div class="two"><label class="fld" for="au-age">Age (18 or older)<input class="inp" id="au-age" type="number" min="18" max="99" data-pf="age" value="${esc(f.age)}"></label>
+    <div><div class="eyebrow" style="margin-bottom:6px">Gender</div><div class="chips">${['Woman','Man'].map(g=>`<button class="chip" data-act="pfgender" data-v="${g}" aria-pressed="${f.gender===g}">${g}</button>`).join('')}</div></div></div>
+    <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div>${vibeChips(f.vibes,'pfvibe')}</div>
+    ${A.err?`<p class="note" style="color:var(--bad)">${esc(A.err)}</p>`:''}
+    <button class="btn" data-act="pfsave" ${A.saving?'disabled':''}>${A.saving?'Saving…':'Save profile'}</button>
+    ${A.profile?`<button class="btn ghost" data-act="pfcancel">Cancel</button>`:`<button class="btn ghost" data-act="auout">Sign out</button>`}
+    <p class="note">Use a clear, recent photo of your face. Only you can see this profile for now. Hosts will see it when you send a ride request.</p></section>`;
+  }
+  return `<section class="panel"><h3>Your profile</h3><div class="crewline">${meAv(56)}<div style="flex:1;min-width:0"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">${meGender()} · ${meTrust()}</div></div></div>
+  <div class="chips">${S.me.vibes.length?S.me.vibes.map(v=>`<span class="chip">${esc(v)}</span>`).join(''):'<span class="note">No vibes picked yet.</span>'}</div>
+  <div class="two"><button class="btn ghost sm" style="width:100%" data-act="auedit">Edit profile</button><button class="btn ghost sm" style="width:100%" data-act="auout">Sign out</button></div>
+  <p class="note">Signed in as ${esc(A.user.email||'')}. Your ride requests will now use this profile.</p></section>`;
+}
 function viewSafety(){
   const st=S.settings;
   const sw=(on,act,id)=>`<button class="sw" role="switch" aria-checked="${on}" data-act="${act}" data-id="${id||''}"></button>`;
   return `<div class="hero"><span class="eyebrow">Profile and safety</span><h2>Set it once, it runs on every ride</h2></div>
-  <section class="panel"><h3>Your profile</h3><div class="crewline">${av(S.me.name,56,true)}<div style="flex:1"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">Woman · Face matched to your ID · ${S.me.shows}% show-up</div></div></div>
-    <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="mevibe" data-v="${v}" aria-pressed="${S.me.vibes.includes(v)}">${v}</button>`).join('')}</div></div>
-    <p class="note">Hosts see your first name, age, photo, vibe and show-up rate. They never see your surname, number or home address.</p></section>
+  ${profilePanel()}
   <section class="panel"><h3>Trusted contacts</h3>
     ${CONTACTS.map(c=>`<div class="toggle" style="padding:2px 0"><div class="crewline">${av(c.name,34)}<div><b>${esc(c.name)}</b><div class="note">${esc(c.rel)}</div></div></div>${sw(st.share[c.id],'tglc',c.id)}</div>`).join('')}
     <p class="note">They get the plate, the crew, the route and a live link when you confirm a ride.</p></section>
@@ -528,7 +574,7 @@ function viewHost(){
   <button class="btn" data-act="publish">Publish to tonight's feed</button>
   ${requestsHTML()}`;
 }
-function personTile(n,g,a,label){return `<div class="pp">${av(n,56,true)}<b>${esc(n)}</b><span class="note">${g}, ${a}${label?'<br>'+label:''}</span></div>`;}
+function personTile(n,g,a,label,me){return `<div class="pp">${me?meAv(56):av(n,56,true)}<b>${esc(n)}</b><span class="note">${g}, ${a}${label?'<br>'+label:''}</span></div>`;}
 function viewTrip(){
   const r=S.req;
   if(!r)return `<div class="hero"><span class="eyebrow">Trip</span><h2>No ride yet</h2></div><div class="empty"><p>Pick a plan from Tonight. Nothing starts until you confirm, and you can end or reroute at any point.</p><button class="btn" data-act="tab" data-v="tonight" style="width:auto">Browse tonight's plans</button></div>`;
@@ -543,7 +589,7 @@ function viewTrip(){
     <button class="btn" data-act="confirm">Confirm and go to the pickup check</button><button class="btn ghost" data-act="cancelreq">Not tonight</button>`;}
   if(r.status==='pickup')return `<div class="hero"><span class="eyebrow">Pickup check</span><h2>Do they look like their photos?</h2><p class="muted">Check before you get in. ${esc(h.name)} checks you too. If anyone does not match, cancel and nothing is held against you.</p></div>
     <section class="panel"><h3>In the car</h3><div class="pgrid">${h.crew.map(c=>personTile(c[0],c[2],c[3],c[1])).join('')}</div><div class="row"><span class="plate">${esc(h.plate)}</span><span>${esc(h.color)} ${esc(h.car)}</span></div></section>
-    <section class="panel"><h3>Riding with them</h3><div class="pgrid">${personTile(S.me.name,'Woman',S.me.age,'You')}${F?personTile(F.name,F.gender,F.age,'Your friend'):''}</div>
+    <section class="panel"><h3>Riding with them</h3><div class="pgrid">${personTile(S.me.name,meGender(),S.me.age,'You',true)}${F?personTile(F.name,F.gender,F.age,'Your friend'):''}</div>
     <div class="live">${r.hostChecked?`<span style="color:var(--good)">${ic('check',16)}</span>${esc(h.name)} checked you. You match.`:`<i></i>Waiting for ${esc(h.name)} to check you`}</div></section>
     <button class="btn" data-act="matchok" ${r.hostChecked?'':'disabled'}>They match, start the trip</button>
     <button class="btn danger" data-act="nomatch">Someone does not match, cancel</button>`;
@@ -631,7 +677,7 @@ function sheetDetail(){
     ${friendUI}
     <div><div class="eyebrow" style="margin-bottom:8px">Share this plan with</div><div class="chips">${CONTACTS.map(c=>`<button class="chip" data-act="tglc" data-id="${c.id}" aria-pressed="${S.settings.share[c.id]}">${esc(c.name)}</button>`).join('')}</div></div></section>
   <section class="panel"><h3>What ${esc(first)} sees about you</h3>
-    <div class="crewline">${av(S.me.name,44,true)}<div style="flex:1;min-width:0"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">Woman · Face matched · ${S.me.shows}% show-up</div></div></div>
+    <div class="crewline">${meAv(44)}<div style="flex:1;min-width:0"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">${meGender()} · ${meTrust()}</div></div></div>
     ${D.friendOn&&F.name.trim()?`<div class="crewline">${av(F.name,44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name)}, ${esc(F.age)}</b><div class="note">${F.gender} · your friend</div></div></div>`:''}
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
@@ -769,6 +815,13 @@ function act(a,el,ev){
     case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
     case 'close':closeSheet();break;
+    case 'ausend':authSend();break;
+    case 'auout':authOut();break;
+    case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice()};S.auth.editing=true;S.auth.err='';renderView();break;}
+    case 'pfcancel':S.auth.editing=false;S.auth.err='';S.auth.file=null;S.auth.preview='';renderView();break;
+    case 'pfgender':S.auth.form.gender=v;renderView();break;
+    case 'pfvibe':{const a=S.auth.form.vibes,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'pfsave':saveProfile();break;
     case 'fb':S.fb.sent=false;S.fb.err='';openSheet('fb');break;
     case 'fbset':S.fb[el.dataset.k]=v;renderSheet();break;
     case 'fbsend':{const f=S.fb;
@@ -849,12 +902,72 @@ document.addEventListener('input',e=>{
   if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
   if(el.dataset.df){S.draft.friend[el.dataset.df]=el.value;return;}
   if(el.dataset.fb){S.fb[el.dataset.fb]=el.value;return;}
+  if(el.dataset.au==='email'){S.auth.email=el.value;return;}
+  if(el.dataset.pf){S.auth.form[el.dataset.pf]=el.value;return;}
+  if(el.dataset.auFile){const f=el.files&&el.files[0];if(f){S.auth.file=f;S.auth.preview=URL.createObjectURL(f);renderView();}return;}
   const f=el.dataset.f;if(!f)return;
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){S.hostDraft.vlogName=el.files&&el.files[0]?el.files[0].name:'';renderView();}
   else if(f==='v')S.hostDraft.v=Number(el.value);
   else S.hostDraft[f]=el.value;
 });
+async function authSend(){
+  const A=S.auth,email=A.email.trim();
+  if(!/^\S+@\S+\.\S+$/.test(email)){A.err='Enter a valid email address.';renderView();return;}
+  A.status='sending';A.err='';renderView();
+  const {error}=await SB.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  if(error){A.status='idle';A.err=error.message||'Could not send the link. Try again in a minute.';}else A.status='sent';
+  renderView();
+}
+async function authOut(){
+  await SB.auth.signOut();
+  const A=S.auth;A.user=null;A.profile=null;A.editing=false;A.status='idle';A.file=null;A.preview='';A.err='';
+  A.form={first_name:'',age:'',gender:'Woman',vibes:[]};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};renderAll();
+}
+async function loadProfile(){
+  const A=S.auth;if(!A.user)return;
+  const {data,error}=await SB.from('profiles').select('*').eq('id',A.user.id).maybeSingle();
+  if(error){A.err='Could not load your profile. '+(error.message||'');renderAll();return;}
+  A.profile=data;
+  if(data){
+    let url='';
+    if(data.photo_path){const r=await SB.storage.from('avatars').createSignedUrl(data.photo_path,3600);url=(r&&r.data&&r.data.signedUrl)||'';}
+    S.me={name:data.first_name,age:data.age,gender:data.gender,vibes:data.vibes||[],photo:url,real:true,shows:null};
+    A.form={first_name:data.first_name,age:String(data.age),gender:data.gender,vibes:(data.vibes||[]).slice()};
+    A.editing=false;
+  }else{A.editing=true;S.tab='safety';S.role='rider';}
+  renderAll();
+}
+async function saveProfile(){
+  const A=S.auth,f=A.form,age=parseInt(f.age,10);
+  const hasPhoto=!!(A.file||(A.profile&&A.profile.photo_path));
+  if(!f.first_name.trim()){A.err='Add your first name.';renderView();return;}
+  if(!(age>=18&&age<=99)){A.err='You must be 18 or older to use Pull Up.';renderView();return;}
+  if(!hasPhoto){A.err='Add a clear photo of your face.';renderView();return;}
+  A.saving=true;A.err='';renderView();
+  try{
+    let path=A.profile&&A.profile.photo_path||null;
+    if(A.file){
+      if(!/^image\//.test(A.file.type))throw new Error('Pick an image file.');
+      if(A.file.size>3*1024*1024)throw new Error('That photo is over 3 MB. Pick a smaller one.');
+      path=A.user.id+'/avatar';
+      const up=await SB.storage.from('avatars').upload(path,A.file,{upsert:true,contentType:A.file.type});
+      if(up.error)throw up.error;
+    }
+    const {error}=await SB.from('profiles').upsert({id:A.user.id,first_name:f.first_name.trim(),age,gender:f.gender,vibes:f.vibes,photo_path:path,updated_at:new Date().toISOString()});
+    if(error)throw error;
+    A.file=null;A.preview='';
+    A.saving=false;await loadProfile();toast('Profile saved');return;
+  }catch(e){A.err=(e&&e.message)||'Could not save. Try again.';}
+  A.saving=false;renderView();
+}
+if(SB){
+  SB.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!S.auth.user){S.auth.user=u;loadProfile();}});
+  SB.auth.onAuthStateChange((ev,session)=>{
+    const u=session?session.user:null;
+    if(u&&(!S.auth.user||S.auth.user.id!==u.id)){S.auth.user=u;loadProfile();}
+  });
+}
 renderAll();
 const mq=window.matchMedia('(min-width:900px)');
 if(mq.addEventListener)mq.addEventListener('change',()=>renderAll());
