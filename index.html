@@ -86,6 +86,15 @@ p{margin:0}
 .avs .av+.av{margin-left:-8px}
 .av svg.p{display:block;width:100%;height:100%;border-radius:50%}
 .av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.sbub-row{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+.sbub-row::-webkit-scrollbar{display:none}
+.sbub{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:70px;color:var(--ink);font-size:12px;font-weight:600}
+.sbub .ring{width:66px;height:66px;border-radius:50%;padding:3px;background:conic-gradient(from 200deg,#F5C451,#ff7a59,#c93fa0,#F5C451)}
+.sbub.seen .ring{background:var(--line)}
+.sbub .ring>span{display:block;width:100%;height:100%;border-radius:50%;border:3px solid var(--bg);background:var(--surface-2);overflow:hidden}
+.sbub .ring .av,.sbub .ring>span>.av{width:100%!important;height:100%!important;border:0;margin:0}
+.sbub .ring img.p{width:100%;height:100%;object-fit:cover;border-radius:0}
+.sbub .nm{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;background:#000}
 .thumb.hasv .car{display:none}
 .thumb.hasv::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),transparent 45%,rgba(0,0,0,.25));pointer-events:none}
@@ -458,6 +467,20 @@ function cardHTML(h){
     <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>
   </div></article>`;
 }
+function seenGet(){try{return JSON.parse(localStorage.getItem('pu_seen')||'{}');}catch(e){return {};}}
+function seenSet(id){S.seen=S.seen||seenGet();S.seen[id]=1;try{localStorage.setItem('pu_seen',JSON.stringify(S.seen));}catch(e){}}
+function storyList(){
+  const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group;
+  return [...S.live.filter(h=>keep(h)&&hasVlog(h)),...hosts.filter(keep)];
+}
+function storiesRow(){
+  const L=storyList();if(!L.length)return '';
+  S.seen=S.seen||seenGet();
+  return `<div class="sbub-row" role="list" aria-label="Host stories">${L.map(h=>{
+    const ph=h.crew&&h.crew[0]&&h.crew[0][4];
+    const face=ph?`<img class="p" src="${esc(ph)}" alt="">`:av(h.name,60,false);
+    return `<button class="sbub${S.seen[h.id]?' seen':''}" role="listitem" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s story"><span class="ring"><span>${face}</span></span><span class="nm">${h.mine?'You':esc(h.name)}</span></button>`;}).join('')}</div>`;
+}
 function viewTonight(){
   const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group,byFit=(a,b)=>fit(b).length-fit(a).length;
   const real=S.live.filter(keep).sort(byFit),sample=hosts.filter(keep).sort(byFit);
@@ -467,6 +490,7 @@ function viewTonight(){
     +(sample.length?`${SB?'<h2>Sample plans</h2>':''}<div class="feed">${sample.map(cardHTML).join('')}</div>`:(real.length?'':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'));
   const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
   return `<div class="hero"><span class="eyebrow">Tonight near you</span><h1>The event's over. Pick your ride.</h1><p class="muted">You choose who you move with. Hosts can't message you first.</p></div>
+  ${storiesRow()}
   <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
@@ -790,7 +814,9 @@ function renderSheet(){
     const v=document.getElementById('storyVid'),bar=document.getElementById('storyBar');
     if(v){
       v.addEventListener('timeupdate',()=>{if(v.duration)bar.style.width=(v.currentTime/v.duration*100)+'%';});
-      v.addEventListener('ended',()=>{const h=hostById(S.vlog.id);if(h){S.draft=newDraft(h.id);openSheet('detail');}});
+      v.addEventListener('ended',()=>{const L=storyList().filter(x=>x.real||x.vlogLocal),k=L.findIndex(x=>x.id===S.vlog.id),nx=L[k+1];
+        if(nx){const btn=document.createElement('button');btn.dataset.act='vlog';btn.dataset.id=nx.id;document.body.appendChild(btn);btn.click();btn.remove();}
+        else{const h=hostById(S.vlog.id);if(h){S.draft=newDraft(h.id);openSheet('detail');}}});
       const p=v.play();if(p&&p.catch)p.catch(()=>{v.muted=true;v.play().catch(()=>{});});
     }
     return;
@@ -799,7 +825,7 @@ function renderSheet(){
   const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
 }
 function openSheet(n){S.sheet=n;renderSheet();}
-function closeSheet(){S.sheet=null;S._sheetKept=null;renderSheet();}
+function closeSheet(){const was=S.sheet;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
 function renderView(){
   const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
   const html=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
@@ -866,7 +892,7 @@ function act(a,el,ev){
     case 'evt':S.event=v;renderView();break;
     case 'grp':S.group=Number(v);renderView();break;
     case 'open':S.draft=newDraft(id);openSheet('detail');break;
-    case 'vlog':{const h=hostById(id);S.vlog={id,i:0,url:h.vlogLocal||'',loading:false,err:''};
+    case 'vlog':{const h=hostById(id);seenSet(id);S.vlog={id,i:0,url:h.vlogLocal||'',loading:false,err:''};
       if(h.real&&h.vlogPath&&SB){S.vlog.loading=true;}
       openSheet('vlog');
       if(S.vlog.loading){
