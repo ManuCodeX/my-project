@@ -228,8 +228,8 @@ details.demo .chips{margin-top:10px}
 'use strict';
 /* Paste your Supabase project values here. Both are safe to publish: the anon key is public and the database rules protect the data.
    Leave them empty and the app runs in demo mode with no sign-in. */
-const SUPABASE_URL='';
-const SUPABASE_ANON_KEY='';
+const SUPABASE_URL='https://liwuuuqsnqroofyybxks.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpd3V1dXFzbnFyb29meXlieGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTY1NDIsImV4cCI6MjEwNzAzMjU0Mn0.hhLyvcS9RypUoWDlZ-Pp9JQH0WgeUS9e7eckYtLBceM';
 const SB=(window.supabase&&SUPABASE_URL&&SUPABASE_ANON_KEY)?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 const KM=0.02, KMH=30;                       // 40 map units = 0.8 km; city driving speed
 const $=(s,r)=>(r||document).querySelector(s);
