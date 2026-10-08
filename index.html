@@ -86,6 +86,21 @@ p{margin:0}
 .avs .av+.av{margin-left:-8px}
 .av svg.p{display:block;width:100%;height:100%;border-radius:50%}
 .av .okb{position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:var(--good);color:var(--bg);display:grid;place-items:center;border:2px solid var(--surface)}
+.tvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;background:#000}
+.thumb.hasv .car{display:none}
+.thumb.hasv::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),transparent 45%,rgba(0,0,0,.25));pointer-events:none}
+.thumb.hasv .tl,.thumb.hasv .tr,.thumb.hasv .play{z-index:2}
+.story{position:absolute;inset:0;background:#000;z-index:60;display:flex;flex-direction:column;color:#fff}
+.story video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.story .sbar{position:absolute;top:10px;left:12px;right:12px;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden;z-index:3}
+.story .sbar i{display:block;height:100%;width:0;background:#fff}
+.story .shead{position:absolute;top:22px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.story .shead b{font-size:15px}.story .shead span.scar{font-size:12px;opacity:.85}
+.story .shead .x{margin-left:auto;background:rgba(0,0,0,.4);color:#fff}
+.story .tapl,.story .tapr{position:absolute;top:70px;bottom:90px;z-index:2}
+.story .tapl{left:0;width:35%}.story .tapr{right:0;width:65%}
+.story .sfoot{position:absolute;left:14px;right:14px;bottom:18px;z-index:3;display:flex;flex-direction:column;gap:8px}
+.story .msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;z-index:1}
 .vplayer{display:block;width:100%;max-height:62vh;border-radius:16px;background:#000}
 .av img.p{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .tag.fit{background:var(--good);color:var(--bg)}
@@ -426,7 +441,8 @@ function cardHTML(h){
   const L=legsFor(h,false),st=L.stops,ev=EVENTS[h.event];
   const toNext=st[1].at-st[0].at,toHome=st[2].at-st[1].at;
   return `<article class="card" id="card-${h.id}">
-  <div class="thumb" style="--h:${hue(h.name)}">
+  <div class="thumb${h.vlogThumb?' hasv':''}" style="--h:${hue(h.name)}">
+    ${h.vlogThumb?`<video class="tvid" muted playsinline preload="metadata" src="${esc(h.vlogThumb)}#t=0.5" aria-hidden="true"></video>`:''}
     <svg class="car" viewBox="0 0 124 64" aria-hidden="true"><ellipse cx="62" cy="58" rx="54" ry="5" fill="rgba(0,0,0,.35)"/><path d="M10 46C10 40 14 36 20 35L34 24C37 21 41 20 45 20H80C85 20 89 22 92 25L102 35C110 36 114 40 114 46V52H10Z" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/><circle cx="32" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="92" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="108" cy="42" r="3.2" fill="#FFD27A"/><circle cx="16" cy="42" r="2.6" fill="#ff6a5c"/></svg>
     <div class="tl"><span class="tag">${ic('clock',12)}Leaving ${esc(h.leaving)}</span>${h.real?'<span class="tag" style="background:var(--good);color:var(--bg)">Live</span>':'<span class="tag">Sample</span>'}${fitTag(h)}</div>
     <div class="tr"><span class="tag crew">${ic('users',14)}${h.crew.length===1?'Solo':'Group of '+h.crew.length}</span></div>
@@ -706,6 +722,13 @@ function sheetVlog(){
   const h=hostById(S.vlog.id),V=S.vlog,i=V.i;
   const head=lab=>`<div class="sheet-h"><div><span class="eyebrow">${lab}</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>`;
   if(h.real||h.vlogLocal){
+    const photo=h.crew&&h.crew[0]&&h.crew[0][4];
+    const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}</span></div>`;
+    const inner=V.loading?'<div class="msg"><p>Loading…</p></div>':V.err?`<div class="msg"><p>${esc(V.err)}</p></div>`:V.url?`<video id="storyVid" playsinline autoplay src="${esc(V.url)}"></video>`:`<div class="msg"><p>${esc(h.name)} has not added a vlog yet.</p></div>`;
+    return `<div class="story"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button>
+    <div class="sfoot"><button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
+  }
+  if(false){
     const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="auto" src="${esc(V.url)}#t=0.1"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
     return head('Vlog')+body+`<p class="note">If it does not play, the video may be in a format your phone cannot open. MP4 works best.</p><button class="btn" data-act="open" data-id="${h.id}">See the plan</button>`;
   }
@@ -762,6 +785,16 @@ function renderSheet(){
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
   const T={fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  if(S.sheet==='vlog'&&(()=>{const h=hostById(S.vlog.id);return h&&(h.real||h.vlogLocal);})()){
+    root.innerHTML=`<div class="scrim" style="padding:0;align-items:stretch" data-act="noop">${T.vlog()}</div>`;S._sheetKept=S.sheet;
+    const v=document.getElementById('storyVid'),bar=document.getElementById('storyBar');
+    if(v){
+      v.addEventListener('timeupdate',()=>{if(v.duration)bar.style.width=(v.currentTime/v.duration*100)+'%';});
+      v.addEventListener('ended',()=>{const h=hostById(S.vlog.id);if(h){S.draft=newDraft(h.id);openSheet('detail');}});
+      const p=v.play();if(p&&p.catch)p.catch(()=>{v.muted=true;v.play().catch(()=>{});});
+    }
+    return;
+  }
   root.innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${T[S.sheet]()}</div></div>`;
   const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
 }
@@ -845,6 +878,9 @@ function act(a,el,ev){
         }).catch(()=>{S.vlog.loading=false;S.vlog.err='Could not load the vlog.';if(S.sheet==='vlog')renderSheet();});
       }
       break;}
+    case 'vrestart':{const v=document.getElementById('storyVid');if(v){v.currentTime=0;v.play().catch(()=>{});}break;}
+    case 'vopen':{const h=hostById(id);if(h){S.draft=newDraft(h.id);openSheet('detail');}break;}
+    case 'noop':break;
     case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
     case 'close':closeSheet();break;
@@ -967,7 +1003,9 @@ async function loadLive(){
       const paths=[...new Set(rows.map(p=>p.host.photo_path).filter(Boolean))];
       const urls={};
       if(paths.length){const u=await SB.storage.from('avatars').createSignedUrls(paths,3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)urls[x.path]=x.signedUrl;});}
-      S.live=rows.map(p=>planToHost(p,urls[p.host.photo_path]));
+      const vp=[...new Set(rows.map(p=>p.vlog_path).filter(Boolean))],vurls={};
+      if(vp.length){try{const u=await SB.storage.from('vlogs').createSignedUrls(vp,3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)vurls[x.path]=x.signedUrl;});}catch(e){}}
+      S.live=rows.map(p=>{const h=planToHost(p,urls[p.host.photo_path]);h.vlogThumb=p.vlog_path?(vurls[p.vlog_path]||null):null;return h;});
       const mine=S.live.find(h=>h.mine);
       if(mine){
         const pr=await SB.from('plan_private').select('plate').eq('plan_id',mine.planId).maybeSingle();
