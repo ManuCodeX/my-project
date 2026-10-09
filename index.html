@@ -126,14 +126,18 @@ p{margin:0}
 .thumb.hasv .tl,.thumb.hasv .tr,.thumb.hasv .play{z-index:2}
 .story{position:absolute;inset:0;background:#000;z-index:60;display:flex;flex-direction:column;color:#fff}
 .story video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
-.story .sbar{position:absolute;top:10px;left:12px;right:12px;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden;z-index:3}
+.story .shd{flex:none;padding:10px 12px 8px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(#000,#000)}
+.story .sbar{height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
 .story .sbar i{display:block;height:100%;width:0;background:#fff}
-.story .shead{position:absolute;top:22px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.story .shead{display:flex;align-items:center;gap:10px}
 .story .shead b{font-size:15px}.story .shead span.scar{font-size:12px;opacity:.85}
-.story .shead .x{margin-left:auto;background:rgba(0,0,0,.4);color:#fff}
-.story .tapl,.story .tapr{position:absolute;top:70px;bottom:90px;z-index:2}
+.story .shead .x{margin-left:auto;background:rgba(255,255,255,.14);color:#fff}
+.story .svid{position:relative;flex:1;min-height:0;background:#000}
+.story .tapl,.story .tapr{position:absolute;top:0;bottom:0;z-index:2}
 .story .tapl{left:0;width:35%}.story .tapr{right:0;width:65%}
-.story .sfoot{position:absolute;left:14px;right:14px;bottom:18px;z-index:3;display:flex;flex-direction:column;gap:8px}
+.story .sfoot{flex:none;display:flex;gap:10px;align-items:center;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:#000;max-width:560px;width:100%;margin:0 auto}
+.story .btn.ico{width:50px;min-width:50px;padding:0}
+@media(min-width:760px){.story .shd,.story .svid,.story .sfoot{max-width:460px;width:100%;margin-left:auto;margin-right:auto}}
 .story .msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;z-index:1}
 .vplayer{display:block;width:100%;max-height:62vh;border-radius:16px;background:#000}
 .av img.p{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
@@ -160,9 +164,7 @@ p{margin:0}
 .btn.act small{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--surface-2);font-size:11px;font-weight:800;color:var(--ink-2)}
 .btn.act.on{border-color:var(--accent);color:var(--accent)}
 .story .btn.ghost{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(0,0,0,.4);backdrop-filter:blur(8px)}
-.story .btn.act small{background:rgba(255,255,255,.2);color:#fff}
-.story .btn.act.on{border-color:var(--accent);color:var(--accent)}
-.sfoot{max-width:520px;margin:0 auto;width:100%}
+.story .btn.ico.on{border-color:var(--accent);color:var(--accent)}
 .sheet>.btn,.sheet>.actions{flex:none}
 /* ---- button polish ---- */
 .btn{min-height:50px;padding:13px 20px;border-radius:999px;font-weight:800;font-size:15px;letter-spacing:.005em;position:relative;overflow:hidden;
@@ -1035,8 +1037,11 @@ function sheetVlog(){
     const photo=h.crew&&h.crew[0]&&h.crew[0][4];
     const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}</span></div>`;
     const inner=V.loading?'<div class="msg"><p>Loading…</p></div>':V.err?`<div class="msg"><p>${esc(V.err)}</p></div>`:V.url?`<video id="storyVid" playsinline autoplay src="${esc(V.url)}"></video>`:`<div class="msg"><p>${esc(h.name)} has not added a vlog yet.</p></div>`;
-    return `<div class="story"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button>
-    <div class="sfoot">${actRow(folBtn(h),igBtn(h))}<button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
+    const on=isFol(h),canF=h.real&&!h.mine&&SB&&S.auth.user&&!S.socialOff;
+    const foot=`${canF?`<button class="btn ghost ico${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}" aria-label="${on?'Following':'Follow'} ${esc(h.name)}">${ic(on?'check':'userplus',20)}</button>`:''}${(h.real&&igOk(h.ig))?`<button class="btn ghost ico" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',20)}</button>`:''}<button class="btn" style="flex:1" data-act="open" data-id="${h.id}">See the plan</button>`;
+    return `<div class="story"><div class="shd"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div></div>
+    <div class="svid">${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button></div>
+    <div class="sfoot">${foot}</div></div>`;
   }
   if(false){
     const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="auto" src="${esc(V.url)}#t=0.1"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
