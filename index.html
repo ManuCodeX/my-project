@@ -113,6 +113,13 @@ p{margin:0}
 .sbub .ring .av,.sbub .ring>span>.av{width:100%!important;height:100%!important;border:0;margin:0}
 .sbub .ring img.p{width:100%;height:100%;object-fit:cover;border-radius:0}
 .sbub .nm{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-list{display:flex;flex-direction:column;gap:6px;min-height:180px;max-height:46vh;overflow:auto;padding:4px 2px}
+.bub{max-width:82%;padding:8px 12px;border-radius:16px;font-size:14px;line-height:1.35;word-break:break-word;white-space:pre-wrap}
+.bub.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:5px}
+.bub.them{align-self:flex-start;background:var(--surface-2);color:var(--ink);border-bottom-left-radius:5px}
+.bub small{display:block;font-size:10px;opacity:.7;margin-top:2px;white-space:normal}
+.chat-in{display:flex;gap:8px;align-items:flex-end}
+.chat-in textarea{flex:1;resize:none;min-height:44px;max-height:110px}
 .tvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;background:#000}
 .thumb.hasv .car{display:none}
 .thumb.hasv::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),transparent 45%,rgba(0,0,0,.25));pointer-events:none}
@@ -744,6 +751,51 @@ function clock(){const d=new Date();return String(d.getHours()).padStart(2,'0')+
 function logT(m,k){S.trip.log.push({t:clock(),m,k});}
 
 /* ---------- sheets ---------- */
+function chatHTML(msgs){
+  const me=S.auth.user&&S.auth.user.id;
+  if(!msgs.length)return '<p class="note" style="text-align:center;margin:auto">No messages yet. Say hi and confirm the pickup spot.</p>';
+  return msgs.map(m=>`<div class="bub ${m.sender_id===me?'me':'them'}">${esc(m.body)}<small>${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small></div>`).join('');
+}
+function paintChat(){
+  const el=document.getElementById('chatList');if(!el||!S.chat)return;
+  const near=el.scrollHeight-el.scrollTop-el.clientHeight<60;
+  el.innerHTML=chatHTML(S.chat.msgs);
+  if(near||S.chat.first){el.scrollTop=el.scrollHeight;S.chat.first=false;}
+}
+async function pollChat(){
+  const c=S.chat;if(!c||S.sheet!=='chat'||c.busy)return;
+  c.busy=true;
+  try{
+    const r=await SB.from('messages').select('id,sender_id,body,created_at').eq('request_id',c.id).order('created_at',{ascending:true}).limit(200);
+    if(r.error){c.err=/relation|messages/i.test(r.error.message||'')?'Chat needs the step 8 database update.':'Could not load messages.';const e=document.getElementById('chatErr');if(e)e.textContent=c.err;}
+    else if(S.chat===c){const pend=c.msgs.filter(m=>m.pending);c.msgs=[...(r.data||[]),...pend.filter(p=>!(r.data||[]).some(d=>d.body===p.body&&d.sender_id===p.sender_id&&Math.abs(new Date(d.created_at)-new Date(p.created_at))<60000))];paintChat();}
+  }catch(e){}
+  c.busy=false;
+}
+function openChat(reqId,name){
+  S.chat={id:reqId,name:name||'Match',msgs:[],err:'',first:true,busy:false};
+  openSheet('chat');
+  pollChat();
+  S.chatTimer=setInterval(pollChat,4000);
+}
+async function sendChat(){
+  const c=S.chat,inp=document.getElementById('chatIn');if(!c||!inp||!S.auth.user)return;
+  const body=inp.value.trim().slice(0,500);if(!body)return;
+  inp.value='';
+  const m={id:'tmp'+Date.now(),sender_id:S.auth.user.id,body,created_at:new Date().toISOString(),pending:true};
+  c.msgs.push(m);paintChat();
+  const r=await SB.from('messages').insert({request_id:c.id,sender_id:S.auth.user.id,body});
+  if(r&&r.error){c.msgs=c.msgs.filter(x=>x!==m);paintChat();inp.value=body;toast(/policy|row-level/i.test(r.error.message||'')?'Chat is closed for this ride.':'Message not sent. Try again.');}
+  else{m.pending=false;pollChat();}
+}
+function sheetChat(){
+  const c=S.chat;
+  return `<div class="sheet-h"><div><span class="eyebrow">Private chat</span><h2>${esc(c.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <p class="note">Only the two of you can see this. Keep it about the ride. If anything feels off, close this and use Report a problem or SOS.</p>
+  <div class="chat-list" id="chatList" role="log" aria-live="polite">${chatHTML(c.msgs)}</div>
+  <p class="note" id="chatErr" style="color:var(--bad)">${esc(c.err||'')}</p>
+  <div class="chat-in"><textarea class="inp" id="chatIn" rows="1" maxlength="500" placeholder="Message ${esc(c.name)}" aria-label="Message"></textarea><button class="btn" style="width:auto" data-act="chatsend">Send</button></div>`;
+}
 async function sendRealRequest(){
   const h=hostById(S.draft.id),D=S.draft,F=D.friend,A=S.auth;
   if(!h||!h.real||!A.user||S.sendingReq)return;
@@ -816,7 +868,7 @@ function realReqCard(r){
   return `<div class="req"><div class="crewline">${face}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">${esc(r.gender)} · Photo added · ID check soon</div></div></div>
   <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.n)+'</b>: '+esc(r.friend.g)+', '+esc(String(r.friend.a))+'. Her photo check comes with ID verification.':'Coming alone'}</div>
   <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
-  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She has your plate and pickup spot.</span>`:r.status==='declined'?`<span class="note">Declined</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="hracc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="hrdec" data-id="${r.id}">Decline</button></div>${ig}`}</div>`;
+  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She has your plate and pickup spot.</span><button class="btn sm" data-act="chat" data-id="${r.id}" data-v="${esc(r.name)}">Message ${esc(r.name)}</button>`:r.status==='declined'?`<span class="note">Declined</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="hracc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="hrdec" data-id="${r.id}">Decline</button></div>${ig}`}</div>`;
 }
 const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
 const folBtn=(h,cls)=>{
@@ -927,7 +979,7 @@ function sheetDetail(){
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
   ${folBtn(h)}${igBtn(h)}
-  ${qOpen?`<div class="rule">${ic(q.status==='accepted'?'check':'clock',18)}<span>${q.status==='accepted'?esc(h.name)+' accepted you. Plate: <b>'+esc(q.plate||h.plate||'shown when he is ready')+'</b>. Meet at: '+esc(h.parkDesc)+'.':'Request sent. '+esc(h.name)+' is looking at your profile.'}</span></div><button class="btn ghost" data-act="rcancel" data-id="${h.id}">Cancel my request</button>`
+  ${qOpen?`<div class="rule">${ic(q.status==='accepted'?'check':'clock',18)}<span>${q.status==='accepted'?esc(h.name)+' accepted you. Plate: <b>'+esc(q.plate||h.plate||'shown when he is ready')+'</b>. Meet at: '+esc(h.parkDesc)+'.':'Request sent. '+esc(h.name)+' is looking at your profile.'}</span></div>${q.status==='accepted'?`<button class="btn" data-act="chat" data-id="${q.id}" data-v="${esc(h.name)}">Message ${esc(h.name)}</button>`:''}<button class="btn ghost" data-act="rcancel" data-id="${h.id}">Cancel my request</button>`
     :`<button class="btn" data-act="request" ${block||(h.mine)?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>`}
   <p class="note">${h.real?'He sees your photo, first name, age and vibe. Nothing else.':'Nothing starts until you confirm and both sides pass the pickup photo check.'}</p>`;
 }
@@ -997,7 +1049,7 @@ function sheetDone(){
 function renderSheet(){
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
-  const T={ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  const T={chat:sheetChat,ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
   if(S.sheet==='vlog'&&(()=>{const h=hostById(S.vlog.id);return h&&(h.real||h.vlogLocal);})()){
     root.innerHTML=`<div class="scrim" style="padding:0;align-items:stretch" data-act="noop">${T.vlog()}</div>`;S._sheetKept=S.sheet;
     const v=document.getElementById('storyVid'),bar=document.getElementById('storyBar');
@@ -1014,7 +1066,7 @@ function renderSheet(){
   const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
 }
 function openSheet(n){S.sheet=n;renderSheet();}
-function closeSheet(){const was=S.sheet;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
+function closeSheet(){const was=S.sheet;if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
 function renderView(){
   const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
   const html=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
@@ -1143,6 +1195,8 @@ function act(a,el,ev){
     case 'hfr':S.hostDraft.friendsOk=!S.hostDraft.friendsOk;renderView();break;
     case 'hfp':S.hostDraft.friendPref=v;renderView();break;
     case 'hrule':{const a=S.hostDraft.rules,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'chat':openChat(id,v);break;
+    case 'chatsend':sendChat();break;
     case 'rcancel':cancelRealRequest(id);break;
     case 'hracc':decideRequest(id,'accepted');break;
     case 'hrdec':decideRequest(id,'declined');break;
@@ -1192,6 +1246,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&S.sheet&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();
   if(e.key==='Enter'){const g=e.target.closest&&e.target.closest('g[data-act]');if(g)act(g.dataset.act,g,e);}
 });
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='chatIn'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
 document.addEventListener('input',e=>{
   const el=e.target;
   if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
