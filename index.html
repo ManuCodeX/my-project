@@ -404,7 +404,7 @@ function mapSVG(o){
 
 /* ---------- state ---------- */
 const S={
-  role:'rider',tab:'tonight',event:'a',group:99,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},onlyFol:false,socialOff:false,
+  role:'rider',tab:'tonight',event:'a',group:99,myReqs:{},hostReqs:[],reqOff:false,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},onlyFol:false,socialOff:false,
   sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
@@ -625,6 +625,13 @@ function reqCard(r){
   ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She confirms at pickup.</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="racc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="rdec" data-id="${r.id}">Decline</button></div>`}</div>`;
 }
 function requestsHTML(){
+  if(S.posted&&S.posted.real){
+    const items=S.hostReqs.filter(r=>r.status!=='declined');
+    const left=Math.max(0,S.posted.seats-S.hostReqs.filter(x=>x.status==='accepted').reduce((a,x)=>a+1+(x.friend?1:0),0));
+    return `<section class="panel"><div class="row"><h3>Requests</h3><span class="tag crew">${left} seat${left===1?'':'s'} left</span></div>
+    <p class="note">${S.reqOff?'Requests need the step 7 database update.':'Real riders appear here. You see her photo and details before you accept. Nobody can message you first.'}</p>
+    ${items.length?items.map(realReqCard).join(''):'<p class="muted">No requests yet. This refreshes every 20 seconds.</p>'}</section>`;
+  }
   const left=seatsLeft(),items=S.requests.filter(r=>r.status!=='declined');
   return `<section class="panel"><div class="row"><h3>Requests</h3><span class="tag crew">${left} seat${left===1?'':'s'} left</span></div>
   <p class="note">Sample requests so you can try the inbox. Real ride requests arrive in the next update. You see each rider and each friend before you accept, and every one is selfie-verified against her ID.</p>
@@ -733,6 +740,80 @@ function clock(){const d=new Date();return String(d.getHours()).padStart(2,'0')+
 function logT(m,k){S.trip.log.push({t:clock(),m,k});}
 
 /* ---------- sheets ---------- */
+async function sendRealRequest(){
+  const h=hostById(S.draft.id),D=S.draft,F=D.friend,A=S.auth;
+  if(!h||!h.real||!A.user||S.sendingReq)return;
+  S.sendingReq=true;
+  try{
+    const friend=D.friendOn?{n:F.name.trim().slice(0,40),g:F.gender,a:Number(F.age)||27}:null;
+    const r=await SB.from('requests').upsert({plan_id:h.planId,rider_id:A.user.id,friend,status:'pending'},{onConflict:'plan_id,rider_id'}).select('id,status').single();
+    if(r.error)throw r.error;
+    S.myReqs[h.planId]={id:r.data.id,status:'pending',plate:null};
+    toast('Request sent to '+h.name);
+    renderSheet();renderView();
+  }catch(e){toast('Could not send: '+(((e&&e.message)||'try again').slice(0,80)));}
+  S.sendingReq=false;
+}
+async function cancelRealRequest(hid){
+  const h=hostById(hid),q=h&&S.myReqs[h.planId];if(!q)return;
+  const r=await SB.from('requests').update({status:'cancelled'}).eq('id',q.id);
+  if(r&&r.error){toast('Could not cancel. Try again.');return;}
+  q.status='cancelled';toast('Request cancelled');renderSheet();renderView();
+}
+async function decideRequest(id,status){
+  const r=S.hostReqs.find(x=>x.id===id);if(!r)return;
+  if(status==='accepted'&&(r.status!=='pending'))return;
+  const res=await SB.from('requests').update({status}).eq('id',id);
+  if(res&&res.error){toast('Could not update. Try again.');return;}
+  r.status=status;toast(status==='accepted'?r.name+' accepted':'Declined');renderView();
+}
+async function loadRequests(rows,mine){
+  const A=S.auth;if(!SB||!A.user)return false;
+  let changed=false;
+  try{
+    const mr=await SB.from('requests').select('id,plan_id,status').eq('rider_id',A.user.id);
+    if(mr.error){S.reqOff=true;return false;}
+    S.reqOff=false;
+    const next={};
+    for(const x of (mr.data||[])){
+      const prev=S.myReqs[x.plan_id];
+      const o={id:x.id,status:x.status,plate:prev&&prev.plate||null};
+      if(x.status==='accepted'&&!o.plate){const pp=await SB.from('plan_private').select('plate').eq('plan_id',x.plan_id).maybeSingle();o.plate=(pp&&pp.data&&pp.data.plate)||null;}
+      if(!prev||prev.status!==x.status){changed=true;const h=S.live.find(z=>z.planId===x.plan_id);if(prev&&h){if(x.status==='accepted')toast(h.name+' accepted your request');else if(x.status==='declined')toast(h.name+' passed on your request');}}
+      if(o.plate){const h=S.live.find(z=>z.planId===x.plan_id);if(h)h.plate=o.plate;}
+      next[x.plan_id]=o;
+    }
+    S.myReqs=next;
+    if(mine){
+      const q=cols=>SB.from('requests').select('*, rider:profiles!requests_rider_id_fkey('+cols+')').eq('plan_id',mine.planId).neq('status','cancelled').order('created_at',{ascending:true});
+      let hr=await q('first_name,age,gender,vibes,photo_path,instagram');
+      if(hr.error&&/instagram/i.test(hr.error.message||''))hr=await q('first_name,age,gender,vibes,photo_path');
+      const list=(hr&&hr.data)||[];
+      const paths=[...new Set(list.map(x=>x.rider&&x.rider.photo_path).filter(Boolean))],urls={};
+      if(paths.length){const u=await SB.storage.from('avatars').createSignedUrls(paths,3600);((u&&u.data)||[]).forEach(z=>{if(z.signedUrl&&z.path)urls[z.path]=z.signedUrl;});}
+      const before=S.hostReqs.length;
+      S.hostReqs=list.filter(x=>x.rider).map(x=>({id:x.id,status:x.status,name:x.rider.first_name,age:x.rider.age,gender:x.rider.gender,vibes:x.rider.vibes||[],photo:urls[x.rider.photo_path]||null,ig:x.rider.instagram||null,friend:x.friend}));
+      if(S.hostReqs.length>before)changed=true;
+    }else S.hostReqs=[];
+  }catch(e){S.reqOff=true;}
+  return changed;
+}
+function realReqCard(r){
+  const d=S.posted,left=Math.max(0,(d?d.seats:0)-S.hostReqs.filter(x=>x.status==='accepted').reduce((a,x)=>a+1+(x.friend?1:0),0));
+  const need=1+(r.friend?1:0),fv=(r.vibes||[]).filter(v=>d&&d.vibe.includes(v));
+  let why='';
+  if(r.status==='pending'){
+    if(r.friend&&d&&!d.friendsOk)why='Your plan does not allow extra friends.';
+    else if(r.friend&&d&&d.friendPref==='women'&&r.friend.g==='Man')why='Your plan is open to women friends only.';
+    else if(need>left)why='Needs '+need+' seat'+(need>1?'s':'')+', you have '+left+'.';
+  }
+  const face=r.photo?`<span class="av" style="width:52px;height:52px;background:var(--surface-2)"><img class="p" src="${esc(r.photo)}" alt="${esc(r.name)}"></span>`:av(r.name,52,false);
+  const ig=igOk(r.ig)?`<a class="btn ghost sm" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(r.ig)}/" target="_blank" rel="noopener noreferrer">Her Instagram</a>`:'';
+  return `<div class="req"><div class="crewline">${face}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">${esc(r.gender)} · Photo added · ID check soon</div></div></div>
+  <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.n)+'</b>: '+esc(r.friend.g)+', '+esc(String(r.friend.a))+'. Her photo check comes with ID verification.':'Coming alone'}</div>
+  <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
+  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She has your plate and pickup spot.</span>`:r.status==='declined'?`<span class="note">Declined</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="hracc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="hrdec" data-id="${r.id}">Decline</button></div>${ig}`}</div>`;
+}
 const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
 const folBtn=(h,cls)=>{
   if(!h.real||h.mine||!SB||!S.auth.user||S.socialOff)return '';
@@ -790,7 +871,21 @@ function sheetDetail(){
   const markers=L.stops.map((s,i)=>s.kind==='home'?{kind:'home',pos:s.pos,label:'Your place'}:s.kind==='house'?{kind:'fuzz',pos:s.pos,label:'His place'}:{kind:s.kind==='park'?'park':'stop',glyph:s.kind==='park'?'P':String(i),pos:s.pos,label:s.kind==='park'?ev.venue:s.name});
   const total=L.route.total,need=D.friendOn?2:1;
   let block='';
-  if(h.real)block=h.mine?'This is your own live plan.':'Live plan. Ride requests open in the next update, so for now you can look but not book.';
+  const q=h.real?S.myReqs[h.planId]:null,qOpen=q&&(q.status==='pending'||q.status==='accepted');
+  if(h.real){
+    if(h.mine)block='This is your own live plan.';
+    else if(S.reqOff)block='Ride requests need the step 7 database update.';
+    else if(!S.auth.user||!S.auth.profile)block='Sign in and finish your profile to request a ride.';
+    else if(qOpen)block='';
+    else if(Object.values(S.myReqs).some(x=>x.status==='pending'||x.status==='accepted'))block='You already have a ride request open. Cancel it first.';
+    else if(q&&q.status==='declined')block=first+' passed on this one.';
+  }
+  if(h.real&&!block&&!qOpen&&!h.mine){
+    if(D.friendOn&&!F.name.trim())block='Add your friend’s first name.';
+    else if(D.friendOn&&h.friendPref==='women'&&F.gender==='Man')block=first+' is only open to women friends tonight.';
+    else if(D.friendOn&&(1+1)>h.seats)block=first+' has '+h.seats+' seat'+(h.seats===1?'':'s')+' open, you need 2.';
+  }
+  else if(h.real){}
   else if(S.req)block='You already have a ride in progress. Finish or cancel it from the Trip tab first.';
   else if(D.friendOn&&!F.name.trim())block='Add your friend’s first name.';
   else if(D.friendOn&&!F.verified)block='Your friend needs to pass the selfie check first.';
@@ -828,8 +923,9 @@ function sheetDetail(){
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
   ${folBtn(h)}${igBtn(h)}
-  <button class="btn" data-act="request" ${block?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>
-  <p class="note">Nothing starts until you confirm and both sides pass the pickup photo check.</p>`;
+  ${qOpen?`<div class="rule">${ic(q.status==='accepted'?'check':'clock',18)}<span>${q.status==='accepted'?esc(h.name)+' accepted you. Plate: <b>'+esc(q.plate||h.plate||'shown when he is ready')+'</b>. Meet at: '+esc(h.parkDesc)+'.':'Request sent. '+esc(h.name)+' is looking at your profile.'}</span></div><button class="btn ghost" data-act="rcancel" data-id="${h.id}">Cancel my request</button>`
+    :`<button class="btn" data-act="request" ${block||(h.mine)?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>`}
+  <p class="note">${h.real?'He sees your photo, first name, age and vibe. Nothing else.':'Nothing starts until you confirm and both sides pass the pickup photo check.'}</p>`;
 }
 function sheetVlog(){
   const h=hostById(S.vlog.id),V=S.vlog,i=V.i;
@@ -1027,7 +1123,8 @@ function act(a,el,ev){
     case 'dfsend':{const f=S.draft.friend;if(!f.name.trim()){toast('Add her first name first');break;}f.sent=true;renderSheet();
       setTimeout(()=>{f.verified=true;if(S.sheet==='detail')renderSheet();toast(f.name+' passed the selfie check (demo)');},1800);break;}
     case 'tglc':S.settings.share[id]=!S.settings.share[id];S.sheet==='detail'?renderSheet():renderView();break;
-    case 'request':S.req={hostId:S.draft.id,status:'pending',draft:JSON.parse(JSON.stringify(S.draft))};closeSheet();S.tab='trip';renderAll();
+    case 'request':if(hostById(S.draft.id).real){sendRealRequest();break;}
+      S.req={hostId:S.draft.id,status:'pending',draft:JSON.parse(JSON.stringify(S.draft))};closeSheet();S.tab='trip';renderAll();
       setTimeout(()=>{if(S.req&&S.req.status==='pending'){S.req.status='accepted';toast(hostById(S.req.hostId).name+' accepted. Your turn to confirm.');renderView();renderTabs();}},3000);break;
     case 'cancelreq':S.req=null;renderAll();break;
     case 'confirm':S.req.status='pickup';S.req.hostChecked=false;renderAll();
@@ -1040,6 +1137,9 @@ function act(a,el,ev){
     case 'hfr':S.hostDraft.friendsOk=!S.hostDraft.friendsOk;renderView();break;
     case 'hfp':S.hostDraft.friendPref=v;renderView();break;
     case 'hrule':{const a=S.hostDraft.rules,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
+    case 'rcancel':cancelRealRequest(id);break;
+    case 'hracc':decideRequest(id,'accepted');break;
+    case 'hrdec':decideRequest(id,'declined');break;
     case 'racc':{const r=S.requests.find(x=>x.id===id);r.status='accepted';toast(r.name+' accepted. She confirms at pickup.');renderView();break;}
     case 'rdec':{const r=S.requests.find(x=>x.id===id);r.status='declined';renderView();break;}
     case 'sos':if(S.trip){S.trip.sos=true;logT('SOS sent to contacts and the safety team (simulated)','bad');}openSheet('sos');break;
@@ -1113,6 +1213,7 @@ let liveBusy=false;
 async function loadLive(){
   if(!SB||!S.auth.user||liveBusy)return;
   liveBusy=true;
+  let reqChanged=false;
   try{
     const q=cols=>SB.from('plans').select('*, host:profiles!plans_host_id_fkey('+cols+')').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
     let r=await q('first_name,age,gender,photo_path,instagram');
@@ -1134,9 +1235,11 @@ async function loadLive(){
         mine.plate=(pr&&pr.data&&pr.data.plate)||null;
         S.posted=mine;
       }else if(S.posted&&S.posted.real){S.posted=null;}
+      reqChanged=await loadRequests(rows,mine||null);
     }
   }catch(e){S.liveErr=(e&&e.message)||'error';}
   liveBusy=false;
+  if(S.sheet==='detail'&&reqChanged)renderSheet();
   if(!S.sheet&&((S.role==='rider'&&(S.tab==='tonight'||S.tab==='map'))||(S.role==='host'&&S.posted)))renderView();
 }
 function readVideoMeta(file){
