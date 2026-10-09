@@ -864,11 +864,11 @@ function realReqCard(r){
     else if(need>left)why='Needs '+need+' seat'+(need>1?'s':'')+', you have '+left+'.';
   }
   const face=r.photo?`<span class="av" style="width:52px;height:52px;background:var(--surface-2)"><img class="p" src="${esc(r.photo)}" alt="${esc(r.name)}"></span>`:av(r.name,52,false);
-  const ig=igOk(r.ig)?`<a class="btn ghost sm" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(r.ig)}/" target="_blank" rel="noopener noreferrer">Her Instagram</a>`:'';
+  const ig=igOk(r.ig)?`<button class="btn ghost sm" data-act="igr" data-id="${r.id}">See her Instagram</button>`:'';
   return `<div class="req"><div class="crewline">${face}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">${esc(r.gender)} · Photo added · ID check soon</div></div></div>
   <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.n)+'</b>: '+esc(r.friend.g)+', '+esc(String(r.friend.a))+'. Her photo check comes with ID verification.':'Coming alone'}</div>
   <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
-  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She has your plate and pickup spot.</span><button class="btn sm" data-act="chat" data-id="${r.id}" data-v="${esc(r.name)}">Message ${esc(r.name)}</button>`:r.status==='declined'?`<span class="note">Declined</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="hracc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="hrdec" data-id="${r.id}">Decline</button></div>${ig}`}</div>`;
+  ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She has your plate and pickup spot.</span><button class="btn sm" data-act="chat" data-id="${r.id}" data-v="${esc(r.name)}">Message ${esc(r.name)}</button>${ig}`:r.status==='declined'?`<span class="note">Declined</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="hracc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="hrdec" data-id="${r.id}">Decline</button></div>${ig}`}</div>`;
 }
 const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
 const folBtn=(h,cls)=>{
@@ -915,11 +915,12 @@ const A_ok=()=>!!(S.auth.user&&S.auth.profile&&!S.socialOff);
 const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
 const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ${cls||'ghost'}" data-act="ig" data-id="${h.id}">View ${esc(h.name)}'s Instagram</button>`:'';
 function sheetIg(){
-  const h=hostById(S.igView.id);if(!h||!igOk(h.ig))return `<p class="muted">No Instagram added.</p><button class="btn" data-act="close">Close</button>`;
-  return `<div class="sheet-h"><div><span class="eyebrow">Instagram</span><h2>@${esc(h.ig)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
-  <iframe class="igframe" title="Instagram profile of ${esc(h.name)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(h.ig)}/embed"></iframe>
-  <p class="note">This is ${esc(h.name)}'s own public Instagram. Private accounts do not show here. If nothing loads, Instagram may be blocking the preview in your browser.</p>
-  <a class="btn ghost" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(h.ig)}/" target="_blank" rel="noopener noreferrer">Open in Instagram</a>`;
+  const v=S.igView||{},handle=v.handle,name=v.name||'';
+  if(!igOk(handle))return `<p class="muted">No Instagram added.</p><button class="btn" data-act="close">Close</button>`;
+  return `<div class="sheet-h"><div><span class="eyebrow">Instagram</span><h2>@${esc(handle)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <iframe class="igframe" title="Instagram profile of ${esc(name)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(handle)}/embed"></iframe>
+  <p class="note">This is ${esc(name)}'s own public Instagram, shown here so you can scroll it without leaving Pull Up. Private accounts do not show. If nothing loads, Instagram may be blocking the preview in your browser.</p>
+  <a class="btn ghost" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(handle)}/" target="_blank" rel="noopener noreferrer">Open in the Instagram app instead</a>`;
 }
 function sheetDetail(){
   const h=hostById(S.draft.id),D=S.draft,F=D.friend,L=legsFor(h,D.house),ev=EVENTS[h.event],first=h.name.split(' ')[0];
@@ -1148,7 +1149,8 @@ function act(a,el,ev){
         }).catch(()=>{S.vlog.loading=false;S.vlog.err='Could not load the vlog.';if(S.sheet==='vlog')renderSheet();});
       }
       break;}
-    case 'ig':S.igView={id};openSheet('ig');break;
+    case 'ig':{const h=hostById(id);if(h){S.igView={handle:h.ig,name:h.name};openSheet('ig');}break;}
+    case 'igr':{const r=S.hostReqs.find(x=>x.id===id);if(r){S.igView={handle:r.ig,name:r.name};openSheet('ig');}break;}
     case 'vrestart':{const v=document.getElementById('storyVid');if(v){v.currentTime=0;v.play().catch(()=>{});}break;}
     case 'vopen':{const h=hostById(id);if(h){S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'noop':break;
