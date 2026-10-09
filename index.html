@@ -408,7 +408,7 @@ const S={
   sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
-  auth:{user:null,status:'idle',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[],instagram:''}},
+  auth:{user:null,status:'idle',mode:'pw',pw:'',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[],instagram:''}},
   requests:[
     {id:'q1',name:'Naa A.',age:23,shows:97,rating:4.9,vibes:['Dinner','Chill','Music'],friend:{name:'Esi',gender:'Woman',age:24},status:'new'},
     {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
@@ -560,12 +560,16 @@ function profilePanel(){
     <p class="note">Sample profile. Hosts see your first name, age, photo, vibe and show-up rate. They never see your surname, number or home address.</p></section>`;
   }
   if(!A.user){
-    return `<section class="panel"><h3>Create your profile</h3><p class="muted">Sign in with your email. We send you a link, so there is no password to remember.</p>
+    const pwm=A.mode==='pw',busy=A.status==='sending';
+    return `<section class="panel"><h3>Sign in to Pull Up</h3>
+    <div class="chips" role="group" aria-label="Sign-in method"><button class="chip" data-act="aumode" data-v="pw" aria-pressed="${pwm}">Email and password</button><button class="chip" data-act="aumode" data-v="link" aria-pressed="${!pwm}">Email me a link</button></div>
     <label class="fld" for="au-email">Email<input class="inp" id="au-email" type="email" autocomplete="email" data-au="email" value="${esc(A.email)}"></label>
+    ${pwm?`<label class="fld" for="au-pw">Password (6 or more characters)<input class="inp" id="au-pw" type="password" autocomplete="current-password" data-au="pw" value="${esc(A.pw)}"></label>`:''}
     ${A.status==='sent'?`<div class="rule">${ic('check',18)}<span>Check your inbox for the sign-in link, then open it on this device.</span></div>`:''}
     ${A.err?`<p class="note" style="color:var(--bad)">${esc(A.err)}</p>`:''}
-    <button class="btn" data-act="ausend" ${A.status==='sending'?'disabled':''}>${A.status==='sending'?'Sending…':A.status==='sent'?'Send the link again':'Email me a sign-in link'}</button>
-    <p class="note">Your email is only used to sign you in. The rest of the app below still shows sample data.</p></section>`;
+    ${pwm?`<button class="btn" data-act="aupw" data-v="in" ${busy?'disabled':''}>${busy?'Please wait…':'Sign in'}</button><button class="btn ghost" data-act="aupw" data-v="up" ${busy?'disabled':''}>Create account</button>`
+      :`<button class="btn" data-act="ausend" ${busy?'disabled':''}>${busy?'Sending…':A.status==='sent'?'Send the link again':'Email me a sign-in link'}</button>`}
+    <p class="note">${pwm?'New here? Type an email and a password, then tap Create account.':'We send you a link, so there is no password to remember.'} Your email is only used to sign you in.</p></section>`;
   }
   if(A.editing||!A.profile){
     const f=A.form;
@@ -1100,6 +1104,8 @@ function act(a,el,ev){
     case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
     case 'close':closeSheet();break;
     case 'ausend':authSend();break;
+    case 'aumode':S.auth.mode=v;S.auth.err='';S.auth.status='idle';renderView();break;
+    case 'aupw':authPw(v==='up');break;
     case 'auout':authOut();break;
     case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice(),instagram:m.instagram||''};S.auth.editing=true;S.auth.err='';renderView();break;}
     case 'pfcancel':S.auth.editing=false;S.auth.err='';S.auth.file=null;S.auth.preview='';renderView();break;
@@ -1192,6 +1198,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.df){S.draft.friend[el.dataset.df]=el.value;return;}
   if(el.dataset.fb){S.fb[el.dataset.fb]=el.value;return;}
   if(el.dataset.au==='email'){S.auth.email=el.value;return;}
+  if(el.dataset.au==='pw'){S.auth.pw=el.value;return;}
   if(el.dataset.pf){S.auth.form[el.dataset.pf]=el.value;return;}
   if(el.dataset.auFile){const f=el.files&&el.files[0];if(f){S.auth.file=f;S.auth.preview=URL.createObjectURL(f);renderView();}return;}
   const f=el.dataset.f;if(!f)return;
@@ -1310,6 +1317,25 @@ async function authSend(){
   A.status='sending';A.err='';renderView();
   const {error}=await SB.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
   if(error){A.status='idle';A.err=error.message||'Could not send the link. Try again in a minute.';}else A.status='sent';
+  renderView();
+}
+async function authPw(create){
+  const A=S.auth,email=A.email.trim(),pw=A.pw;
+  if(!/^\S+@\S+\.\S+$/.test(email)){A.err='Enter a valid email address.';renderView();return;}
+  if(!pw||pw.length<6){A.err='Use a password with at least 6 characters.';renderView();return;}
+  A.status='sending';A.err='';renderView();
+  try{
+    const r=create?await SB.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname}}):await SB.auth.signInWithPassword({email,password:pw});
+    if(r.error)throw r.error;
+    const u=r.data&&(r.data.session&&r.data.session.user);
+    if(u){A.pw='';A.status='idle';if(!S.auth.user){S.auth.user=u;loadProfile();}renderView();return;}
+    A.status='idle';
+    if(create)A.err='Account created, but Supabase wants the email confirmed first. In Supabase turn off Authentication, Sign In / Providers, Email, Confirm email, then tap Sign in.';
+  }catch(e){
+    A.status='idle';
+    const m=(e&&e.message)||'';
+    A.err=/invalid login/i.test(m)?'Wrong email or password. If you are new, tap Create account.':/already registered/i.test(m)?'That email already has an account. Tap Sign in.':/rate limit/i.test(m)?'Too many emails sent. Use Email and password with Sign in, or wait a while.':m||'Could not sign in. Try again.';
+  }
   renderView();
 }
 async function authOut(){
