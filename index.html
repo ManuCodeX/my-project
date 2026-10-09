@@ -152,6 +152,37 @@ p{margin:0}
 .btn.danger{background:var(--bad);color:var(--bad-ink)}
 .btn.sm{padding:8px 12px;font-size:12px;width:auto;border-radius:10px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+/* ---- button polish ---- */
+.btn{min-height:50px;padding:13px 20px;border-radius:999px;font-weight:800;font-size:15px;letter-spacing:.005em;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent));
+  box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 6px 16px -6px color-mix(in srgb,var(--accent) 70%,transparent);
+  transition:transform .12s ease,box-shadow .15s ease,filter .15s ease,background .15s ease}
+.btn:hover{filter:brightness(1.06)}
+.btn:active{transform:scale(.97);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 2px 6px -3px color-mix(in srgb,var(--accent) 60%,transparent)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:none;border:1.5px solid var(--line)}
+.btn.ghost:hover{background:var(--surface-2);filter:none;border-color:color-mix(in srgb,var(--ink) 25%,var(--line))}
+.btn.ghost:active{background:var(--surface-2)}
+.btn.danger{background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 88%,#fff),var(--bad));box-shadow:0 6px 16px -6px color-mix(in srgb,var(--bad) 70%,transparent)}
+.btn.sm{min-height:38px;padding:8px 16px;font-size:13px;border-radius:999px}
+.btn[disabled]{opacity:.4;box-shadow:none;filter:grayscale(.3);transform:none}
+.chip{padding:8px 15px;font-size:13px;transition:transform .12s ease,background .15s ease,border-color .15s ease}
+.chip:hover{border-color:color-mix(in srgb,var(--ink) 30%,var(--line))}
+.chip:active{transform:scale(.95)}
+.chip[aria-pressed="true"]{box-shadow:0 4px 12px -5px color-mix(in srgb,var(--accent) 80%,transparent)}
+.x{width:36px;height:36px;transition:transform .12s ease,background .15s ease}
+.x:hover{background:var(--line)}
+.x:active{transform:scale(.9)}
+.play{box-shadow:0 4px 14px -4px rgba(0,0,0,.5);transition:transform .12s ease;padding:8px 14px 8px 10px;font-size:13px}
+.play:active{transform:scale(.94)}
+.seg button{transition:background .15s ease,color .15s ease}
+.dtile{transition:transform .15s ease,box-shadow .2s ease}
+.dtile:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(0,0,0,.6)}
+.dtile:active{transform:scale(.97)}
+.sbub:active .ring{transform:scale(.93)}
+.sbub .ring{transition:transform .12s ease}
+.two{gap:10px}
+.sheet .btn+.btn,.panel .btn+.btn{margin-top:2px}
+@media(prefers-reduced-motion:reduce){.btn,.chip,.x,.play,.dtile,.sbub .ring{transition:none}.btn:active,.chip:active,.dtile:hover,.dtile:active{transform:none}}
 .mono{font-family:var(--f-mono);font-weight:700}
 .plate{display:inline-block;padding:5px 11px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-weight:700;font-size:15px;letter-spacing:.06em}
 .map-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--m-land);position:relative}
@@ -874,7 +905,7 @@ const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
 const folBtn=(h,cls)=>{
   if(!h.real||h.mine||!SB||!S.auth.user||S.socialOff)return '';
   const on=isFol(h),n=S.fcounts[h.hostUid]||0;
-  return `<button class="btn ${on?'ghost':(cls||'')}" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${on?'Following':'Follow '+esc(h.name)}${n?' · '+n+' follower'+(n===1?'':'s'):''}</button>`;
+  return `<button class="btn ghost" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${on?'Following':'Follow '+esc(h.name)}${n?' · '+n+' follower'+(n===1?'':'s'):''}</button>`;
 };
 async function loadSocial(rows){
   const A=S.auth;if(!SB||!A.user)return;
