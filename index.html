@@ -569,8 +569,8 @@ function storiesRow(){
 function viewTonight(){
   const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group&&(!S.onlyFol||isFol(h)),byFit=(a,b)=>(isFol(b)-isFol(a))||(fit(b).length-fit(a).length);
   const real=S.live.filter(keep).sort(byFit),sample=hosts.filter(keep).sort(byFit);
-  const feedHTML=(SB&&!S.auth.user?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in to see live plans from real hosts.</span><button class="btn sm" data-act="tab" data-v="safety">Sign in</button></div>`:'')
-    +(SB&&S.auth.user&&!real.length?`<p class="note">${S.onlyFol?'No one you follow is live right now.':S.liveErr?'Live plans need the step 3 database setup. ('+esc(S.liveErr)+')':'No live plans yet. Switch to Hosting and post yours.'}</p>`:'')
+  const feedHTML=(SB&&!S.auth.user?`<div class="rule">${ic('lock',18)}<span style="flex:1">You are browsing. Sign in to request a ride, follow hosts and message.</span><button class="btn sm" data-act="tab" data-v="safety">Sign in</button></div>`:'')
+    +(SB&&!real.length?`<p class="note">${S.onlyFol?'No one you follow is live right now.':S.liveErr?'Live plans need the step 3 database setup. ('+esc(S.liveErr)+')':'No live plans yet. Switch to Hosting and post yours.'}</p>`:'')
     +(real.length?`<h2>Live now</h2><div class="disc">${real.map(tileHTML).join('')}</div>`:'')
     +(sample.length?`${SB?'<h2>Sample plans</h2>':''}<div class="disc">${sample.map(tileHTML).join('')}</div>`:(real.length?'':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'));
   const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
@@ -1324,7 +1324,7 @@ function planToHost(p,photo){
 }
 let liveBusy=false;
 async function loadLive(){
-  if(!SB||!S.auth.user||liveBusy)return;
+  if(!SB||liveBusy)return;
   liveBusy=true;
   let reqChanged=false;
   try{
@@ -1447,7 +1447,7 @@ async function authPw(create){
 async function authOut(){
   await SB.auth.signOut();
   const A=S.auth;A.user=null;A.profile=null;A.editing=false;A.status='idle';A.file=null;A.preview='';A.err='';
-  A.form={first_name:'',age:'',gender:'Woman',vibes:[],instagram:''};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};renderAll();
+  A.form={first_name:'',age:'',gender:'Woman',vibes:[],instagram:''};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};S.myReqs={};S.hostReqs=[];S.fol=new Set();S.posted=S.posted&&S.posted.real?null:S.posted;renderAll();loadLive();
 }
 async function loadProfile(){
   const A=S.auth;if(!A.user)return;
@@ -1495,14 +1495,14 @@ async function saveProfile(){
   A.saving=false;renderView();
 }
 if(SB){
-  SB.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!S.auth.user){S.auth.user=u;loadProfile();}});
+  SB.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!S.auth.user){S.auth.user=u;loadProfile();}else if(!u)loadLive();});
   SB.auth.onAuthStateChange((ev,session)=>{
     const u=session?session.user:null;
     if(u&&(!S.auth.user||S.auth.user.id!==u.id)){S.auth.user=u;loadProfile();}
   });
 }
 renderAll();
-setInterval(()=>{if(SB&&S.auth.user&&document.visibilityState==='visible')loadLive();},20000);
+setInterval(()=>{if(SB&&document.visibilityState==='visible')loadLive();},20000);
 const mq=window.matchMedia('(min-width:900px)');
 if(mq.addEventListener)mq.addEventListener('change',()=>renderAll());
 })();
