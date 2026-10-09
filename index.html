@@ -404,7 +404,7 @@ function mapSVG(o){
 
 /* ---------- state ---------- */
 const S={
-  role:'rider',tab:'tonight',event:'a',group:99,
+  role:'rider',tab:'tonight',event:'a',group:99,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},onlyFol:false,socialOff:false,
   sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{c1:true,c2:true}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
@@ -496,15 +496,15 @@ function tileHTML(h){
   <span class="dface">${face}</span>
   <div class="dn">${esc(h.name)}</div>
   <div class="ds">${esc(h.color)} ${esc(h.car)} · leaving ${esc(h.leaving)}</div>
-  <div class="dm">${fitTag(h)}${h.ig?'<span class="tag">Instagram</span>':''}</div>
+  <div class="dm">${fitTag(h)}${isFol(h)?'<span class="tag" style="background:var(--accent);color:var(--accent-ink)">Following</span>':''}${h.ig?'<span class="tag">Instagram</span>':''}</div>
   ${(h.real?hasVlog(h):true)?`<span class="dplay" aria-hidden="true">${ic('play',14)}</span>`:''}
   </button>`;
 }
 function seenGet(){try{return JSON.parse(localStorage.getItem('pu_seen')||'{}');}catch(e){return {};}}
 function seenSet(id){S.seen=S.seen||seenGet();S.seen[id]=1;try{localStorage.setItem('pu_seen',JSON.stringify(S.seen));}catch(e){}}
 function storyList(){
-  const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group;
-  return [...S.live.filter(h=>keep(h)&&hasVlog(h)),...hosts.filter(keep)];
+  const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group&&(!S.onlyFol||isFol(h));
+  return [...S.live.filter(h=>keep(h)&&hasVlog(h)).sort((a,b)=>isFol(b)-isFol(a)),...(S.onlyFol?[]:hosts.filter(keep))];
 }
 function storiesRow(){
   const L=storyList();if(!L.length)return '';
@@ -515,18 +515,20 @@ function storiesRow(){
     return `<button class="sbub${S.seen[h.id]?' seen':''}" role="listitem" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s story"><span class="ring"><span>${face}</span></span><span class="nm">${h.mine?'You':esc(h.name)}</span></button>`;}).join('')}</div>`;
 }
 function viewTonight(){
-  const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group,byFit=(a,b)=>fit(b).length-fit(a).length;
+  const keep=h=>(S.event==='all'||h.event===S.event)&&h.crew.length<=S.group&&(!S.onlyFol||isFol(h)),byFit=(a,b)=>(isFol(b)-isFol(a))||(fit(b).length-fit(a).length);
   const real=S.live.filter(keep).sort(byFit),sample=hosts.filter(keep).sort(byFit);
   const feedHTML=(SB&&!S.auth.user?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in to see live plans from real hosts.</span><button class="btn sm" data-act="tab" data-v="safety">Sign in</button></div>`:'')
-    +(SB&&S.auth.user&&!real.length?`<p class="note">${S.liveErr?'Live plans need the step 3 database setup. ('+esc(S.liveErr)+')':'No live plans yet. Switch to Hosting and post yours.'}</p>`:'')
+    +(SB&&S.auth.user&&!real.length?`<p class="note">${S.onlyFol?'No one you follow is live right now.':S.liveErr?'Live plans need the step 3 database setup. ('+esc(S.liveErr)+')':'No live plans yet. Switch to Hosting and post yours.'}</p>`:'')
     +(real.length?`<h2>Live now</h2><div class="disc">${real.map(tileHTML).join('')}</div>`:'')
     +(sample.length?`${SB?'<h2>Sample plans</h2>':''}<div class="disc">${sample.map(tileHTML).join('')}</div>`:(real.length?'':'<div class="empty"><h3>No plans match</h3><p class="muted">Try a bigger group size or another event.</p></div>'));
   const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
   return `<div class="hero"><span class="eyebrow">Tonight near you</span><h1>The event's over. Pick your ride.</h1><p class="muted">You choose who you move with. Hosts can't message you first.</p></div>
   ${storiesRow()}
   <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
+  ${SB&&A_ok()?`<div class="chips" role="group" aria-label="Following"><button class="chip" data-act="onlyfol" aria-pressed="${S.onlyFol}">Following${S.fol.size?' · '+S.fol.size:''}</button></div>`:''}
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
+  ${goingHTML()}
   ${feedHTML}
   <section class="panel"><h3>Help shape Pull Up</h3><p class="muted">This is an early prototype. Tell us what feels right, what worries you and whether you would use it. Leave your WhatsApp or email to hear when it opens.</p><button class="btn" data-act="fb">Share feedback or join the waitlist</button></section>`;
 }
@@ -630,7 +632,7 @@ function requestsHTML(){
 }
 function viewHost(){
   const d=S.hostDraft,venue=VENUES[d.v];
-  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2></div>${cardHTML(h)}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
+  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
   return `<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
   ${SB&&!S.auth.profile?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in and create your profile to post a live plan.</span><button class="btn sm" data-act="tab" data-v="safety">Go</button></div>`:''}
   <section class="panel"><h3>The event</h3>
@@ -731,6 +733,48 @@ function clock(){const d=new Date();return String(d.getHours()).padStart(2,'0')+
 function logT(m,k){S.trip.log.push({t:clock(),m,k});}
 
 /* ---------- sheets ---------- */
+const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
+const folBtn=(h,cls)=>{
+  if(!h.real||h.mine||!SB||!S.auth.user||S.socialOff)return '';
+  const on=isFol(h),n=S.fcounts[h.hostUid]||0;
+  return `<button class="btn ${on?'ghost':(cls||'')}" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${on?'Following':'Follow '+esc(h.name)}${n?' · '+n+' follower'+(n===1?'':'s'):''}</button>`;
+};
+async function loadSocial(rows){
+  const A=S.auth;if(!SB||!A.user)return;
+  try{
+    const f=await SB.from('follows').select('followed_id').eq('follower_id',A.user.id);
+    if(f.error){S.socialOff=true;return;}
+    S.socialOff=false;S.fol=new Set((f.data||[]).map(x=>x.followed_id));
+    const ids=[...new Set(rows.map(p=>p.host_id))];
+    if(ids.length){const c=await SB.rpc('follower_counts',{host_ids:ids});S.fcounts={};((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});}
+    const g=await SB.rpc('going_counts');S.gcounts={};((g&&g.data)||[]).forEach(x=>{S.gcounts[x.event]=Number(x.n);});
+    const me=await SB.from('going').select('event').eq('user_id',A.user.id).gt('expires_at',new Date().toISOString());
+    S.goingMe=new Set(((me&&me.data)||[]).map(x=>x.event));
+  }catch(e){S.socialOff=true;}
+}
+async function toggleFollow(h){
+  const A=S.auth,uid=h.hostUid;if(!uid||!A.user)return;
+  const on=S.fol.has(uid);
+  if(on){S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}else{S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}
+  renderAll();
+  const r=on?await SB.from('follows').delete().eq('follower_id',A.user.id).eq('followed_id',uid):await SB.from('follows').insert({follower_id:A.user.id,followed_id:uid});
+  if(r&&r.error){if(on){S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}else{S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}renderAll();toast('Could not update. Try again.');}
+  else toast(on?'Unfollowed '+h.name:'Following '+h.name);
+}
+async function toggleGoing(ev){
+  const A=S.auth;if(!SB||!A.user||!EVENTS[ev])return;
+  const on=S.goingMe.has(ev);
+  if(on){S.goingMe.delete(ev);S.gcounts[ev]=Math.max(0,(S.gcounts[ev]||1)-1);}else{S.goingMe.add(ev);S.gcounts[ev]=(S.gcounts[ev]||0)+1;}
+  renderView();
+  const r=on?await SB.from('going').delete().eq('user_id',A.user.id).eq('event',ev):await SB.from('going').upsert({user_id:A.user.id,event:ev,expires_at:new Date(Date.now()+12*3600*1000).toISOString()});
+  if(r&&r.error){if(on){S.goingMe.add(ev);S.gcounts[ev]=(S.gcounts[ev]||0)+1;}else{S.goingMe.delete(ev);S.gcounts[ev]=Math.max(0,(S.gcounts[ev]||1)-1);}renderView();toast('Could not update. Try again.');}
+}
+function goingHTML(){
+  if(!SB||!A_ok())return '';
+  return `<section class="panel"><h3>Who's out tonight</h3><p class="note">Tap "I'm going" so hosts know the night is worth waiting for. Only the number is shown. Nobody sees your name.</p>
+  ${Object.keys(EVENTS).map(k=>{const n=S.gcounts[k]||0,on=S.goingMe.has(k);return `<div class="toggle" style="padding:6px 0"><div><b>${esc(EVENTS[k].name)}</b><div class="note">${n} going${on?' · including you':''}</div></div><button class="btn sm ${on?'':'ghost'}" data-act="going" data-v="${k}" aria-pressed="${on}">${on?'You are going':"I'm going"}</button></div>`;}).join('')}</section>`;
+}
+const A_ok=()=>!!(S.auth.user&&S.auth.profile&&!S.socialOff);
 const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
 const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ${cls||'ghost'}" data-act="ig" data-id="${h.id}">View ${esc(h.name)}'s Instagram</button>`:'';
 function sheetIg(){
@@ -783,7 +827,7 @@ function sheetDetail(){
     ${D.friendOn&&F.name.trim()?`<div class="crewline">${av(F.name,44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name)}, ${esc(F.age)}</b><div class="note">${F.gender} · your friend</div></div></div>`:''}
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
-  ${igBtn(h)}
+  ${folBtn(h)}${igBtn(h)}
   <button class="btn" data-act="request" ${block?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>
   <p class="note">Nothing starts until you confirm and both sides pass the pickup photo check.</p>`;
 }
@@ -795,7 +839,7 @@ function sheetVlog(){
     const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}</span></div>`;
     const inner=V.loading?'<div class="msg"><p>Loading…</p></div>':V.err?`<div class="msg"><p>${esc(V.err)}</p></div>`:V.url?`<video id="storyVid" playsinline autoplay src="${esc(V.url)}"></video>`:`<div class="msg"><p>${esc(h.name)} has not added a vlog yet.</p></div>`;
     return `<div class="story"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button>
-    <div class="sfoot">${igBtn(h,'ghost')}<button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
+    <div class="sfoot">${folBtn(h,'ghost')}${igBtn(h,'ghost')}<button class="btn" data-act="open" data-id="${h.id}">See the plan and request</button></div></div>`;
   }
   if(false){
     const body=V.loading?'<p class="muted">Loading the vlog…</p>':V.err?`<p class="note" style="color:var(--bad)">${esc(V.err)}</p>`:V.url?`<video class="vplayer" controls playsinline preload="auto" src="${esc(V.url)}#t=0.1"></video>`:`<p class="muted">${esc(h.name)} has not added a vlog yet.</p>`;
@@ -934,6 +978,9 @@ function act(a,el,ev){
   switch(a){
     case 'role':S.role=v;renderAll();break;
     case 'tab':S.tab=v;if(S.role==='host')S.role='rider';renderAll();if(v==='tonight'||v==='map')loadLive();break;
+    case 'follow':{const h=hostById(id);if(h)toggleFollow(h);break;}
+    case 'going':toggleGoing(v);break;
+    case 'onlyfol':S.onlyFol=!S.onlyFol;renderView();break;
     case 'evt':S.event=v;renderView();break;
     case 'grp':S.group=Number(v);renderView();break;
     case 'open':S.draft=newDraft(id);openSheet('detail');break;
@@ -1060,7 +1107,7 @@ function planToHost(p,photo){
   return {id:'p_'+p.id,planId:p.id,real:true,mine,name:hn,rating:0,trips:0,car:p.car,color:p.color,plate:null,event:p.event,parkDesc:p.park_desc,parkM:p.park_m||100,
     crew:[[hn,'Driver',p.host.gender,p.host.age,photo||null],...friends],seats:p.seats,friendsOk:p.friends_ok,friendPref:p.friend_pref,rules:(p.rules&&p.rules.length)?p.rules:['Sober driver'],
     v:VENUES[p.next_venue]?p.next_venue:0,house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
-    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,ig:p.host.instagram||null,verified:false};
+    vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,ig:p.host.instagram||null,hostUid:p.host_id,verified:false};
 }
 let liveBusy=false;
 async function loadLive(){
@@ -1080,6 +1127,7 @@ async function loadLive(){
       const vp=[...new Set(rows.map(p=>p.vlog_path).filter(Boolean))],vurls={};
       if(vp.length){try{const u=await SB.storage.from('vlogs').createSignedUrls(vp,3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)vurls[x.path]=x.signedUrl;});}catch(e){}}
       S.live=rows.map(p=>{const h=planToHost(p,urls[p.host.photo_path]);h.vlogThumb=p.vlog_path?(vurls[p.vlog_path]||null):null;return h;});
+      await loadSocial(rows);
       const mine=S.live.find(h=>h.mine);
       if(mine){
         const pr=await SB.from('plan_private').select('plate').eq('plan_id',mine.planId).maybeSingle();
