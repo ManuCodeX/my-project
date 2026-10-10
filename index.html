@@ -2,6 +2,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 /* Layout: one phone-width app column, centered on desktop. Tabs: Tonight, Map, Trip, Safety. Riders choose; hosts post plans. */
 :root{
@@ -199,6 +201,16 @@ p{margin:0}
 @media(prefers-reduced-motion:reduce){.btn,.chip,.x,.play,.dtile,.sbub .ring{transition:none}.btn:active,.chip:active,.dtile:hover,.dtile:active{transform:none}}
 .mono{font-family:var(--f-mono);font-weight:700}
 .plate{display:inline-block;padding:5px 11px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-weight:700;font-size:15px;letter-spacing:.06em}
+.lmap{height:260px;width:100%;background:var(--m-land);z-index:0}
+.split .lmap{height:360px}
+@media(min-width:900px){.split .lmap{height:520px}.lmap{height:300px}}
+.leaflet-container{font-family:var(--f-body);font-size:12px}
+.lpin{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:3px solid #fff;font-weight:800;font-size:12px;box-shadow:0 3px 10px rgba(0,0,0,.45)}
+.lpin.event{background:#7A5AF8;color:#fff}.lpin.home{background:var(--good);color:#fff}.lpin.stop{background:var(--ink);color:var(--bg);width:26px;height:26px;font-size:11px}
+.lpin.you{background:var(--me);color:#fff;width:18px;height:18px;border-width:3px}
+.lpin.park{width:34px;height:34px;font-size:14px}
+.lpin.me{background:#1769AA;width:16px;height:16px;border-width:3px;box-shadow:0 0 0 8px rgba(23,105,170,.25)}
+.leaflet-tooltip{font-weight:700;border-radius:8px}
 .map-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--m-land);position:relative}
 svg.map{display:block;width:100%;height:auto}
 .m-land{fill:var(--m-land)} .m-park{fill:var(--m-park)} .m-water{fill:var(--m-water)}
@@ -443,6 +455,52 @@ function mk(m,k){
   g=m.hit?`<g class="hit" data-act="open" data-id="${m.hit}" role="button" tabindex="0" aria-label="${esc(m.aria||'Open plan')}">${g}</g>`:g;
   return g+label;
 }
+/* ---------- real map (Leaflet + OpenStreetMap). Falls back to the SVG map if Leaflet cannot load. ---------- */
+const LAT0=5.640,LNG0=-0.235,MPU=KM*1000;
+const toLL=p=>[LAT0-p[1]*MPU/111320,LNG0+p[0]*MPU/(111320*Math.cos(LAT0*Math.PI/180))];
+const MAPS={};let mapSeq=0,LMAPS=[];
+const darkNow=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);};
+function mapAny(o){
+  if(!window.L)return mapSVG(o);
+  const id='m'+(++mapSeq);MAPS[id]=o;
+  return `<div class="lmap" data-lm="${id}" role="region" aria-label="${esc(o.aria||'Map')}"></div>`;
+}
+function hydrateMaps(){
+  if(!window.L)return;
+  LMAPS=LMAPS.filter(m=>{if(document.body.contains(m.getContainer()))return true;try{m.remove();}catch(e){}return false;});
+  document.querySelectorAll('.lmap:not([data-ready])').forEach(el=>{
+    const o=MAPS[el.dataset.lm];if(!o)return;el.dataset.ready='1';
+    const map=L.map(el,{zoomControl:true,scrollWheelZoom:false,attributionControl:true});LMAPS.push(map);
+    const dark=darkNow();
+    L.tileLayer(dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+    const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#9A5F08').trim();
+    const all=[];
+    if(o.route&&o.route.length>1){const ll=o.route.map(toLL);const c=L.layerGroup().addTo(map);L.polyline(ll,{color:acc,weight:9,opacity:.28,lineCap:'round'}).addTo(c);const line=L.polyline(ll,{color:acc,weight:4,lineCap:'round',lineJoin:'round'}).addTo(c);el._line=line;el._lineBg=c;all.push(...ll);}
+    (o.markers||[]).forEach(m=>{
+      const ll=toLL(m.pos);all.push(ll);
+      if(m.kind==='fuzz'){L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map).bindTooltip(m.label||'Area only');return;}
+      const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}">${m.kind==='park'?(m.count||''):(m.kind==='stop'?esc(m.glyph||''):'')}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+      const mk=L.marker(ll,{icon,keyboard:true,title:m.aria||m.label||''}).addTo(map);
+      if(m.label&&m.kind!=='you')mk.bindTooltip(m.label,{direction:'top',offset:[0,-12]});
+      if(m.hit)mk.on('click',()=>{const b=document.createElement('button');b.dataset.act='open';b.dataset.id=m.hit;document.body.appendChild(b);b.click();b.remove();});
+    });
+    if(S.myLL){const ll=S.myLL;L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="lpin me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:'You are here'}).addTo(map).bindTooltip('You are here');all.push(ll);}
+    if(all.length)map.fitBounds(L.latLngBounds(all).pad(0.18),{maxZoom:16});else map.setView([LAT0,LNG0],12);
+    if(o.osrm)snapRoute(el,map,o.osrm);
+  });
+}
+async function snapRoute(el,map,stops){
+  try{
+    const coords=stops.map(toLL).map(p=>p[1].toFixed(5)+','+p[0].toFixed(5)).join(';');
+    const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson');
+    if(!r.ok)return;const j=await r.json();const rt=j&&j.routes&&j.routes[0];if(!rt)return;
+    const ll=rt.geometry.coordinates.map(c=>[c[1],c[0]]);
+    if(el._line){el._line.setLatLngs(ll);el._lineBg.eachLayer(l=>{if(l!==el._line)l.setLatLngs(ll);});}
+    (rt.legs||[]).forEach((lg,i)=>{const t=document.querySelector('[data-leg="'+(i+1)+'"]');if(t)t.innerHTML=(lg.distance/1000).toFixed(1)+' km<br>'+Math.max(1,Math.round(lg.duration/60))+' min';});
+    const tot=document.getElementById('planTotal');if(tot)tot.textContent=(rt.distance/1000).toFixed(1)+' km · about '+Math.max(1,Math.round(rt.duration/60))+' min by road';
+    if(map)map.fitBounds(L.polyline(ll).getBounds().pad(0.15),{maxZoom:16});
+  }catch(e){}
+}
 function mapSVG(o){
   const k=o.box.w/400;let s=BASE;
   if(o.trail&&o.trail.length>1)s+=`<polyline class="m-trail" points="${o.trail.map(p=>p.join(',')).join(' ')}"/>`;
@@ -599,9 +657,10 @@ function viewMap(){
   });
   const order=['stop','event','home','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>Who is parked where</h2><p class="muted">Each amber pin is a host parked near the event. The number on the pin is how many people are in that car. Tap one to see the full plan.</p></div>
-  <div class="split"><div class="map-wrap">${mapSVG({box,markers,aria:'Map of events, parked hosts and next stops'})}</div>
+  <div class="split"><div class="map-wrap">${mapAny({box,markers,aria:'Map of events, parked hosts and next stops'})}</div>
   <div class="hscroll">${allHosts().map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="note">${h.parkM} m from ${esc(EVENTS[h.event].venue)}</span></button>`).join('')}</div></div>
-  <p class="note">Sample map with made-up places. Real hosts appear here once they post a plan.</p>`;
+  <div class="actions" style="margin-top:4px"><button class="btn ghost act" data-act="locate">${ic('pin',18)}<span>${S.myLL?'Update my location':'Show where I am'}</span></button></div>
+  <p class="note">The pins are sample places placed on a real map. Real hosts appear here once they post a plan. Your location stays on your phone and is never saved.</p>`;
 }
 function profilePanel(){
   const A=S.auth;
@@ -1011,10 +1070,10 @@ function sheetDetail(){
   <section class="panel"><div class="row"><h3>In the car</h3><span class="tag crew">${ic('users',13)}${h.crew.length}</span></div>
     <ul class="list">${h.crew.map(c=>`<li class="crewline">${crewAv(c,44,!h.real)}<span style="flex:1;min-width:0"><b>${esc(c[0])}</b><span class="note" style="display:block">${c[2]}, ${c[3]} · ${c[1]}</span></span>${crewBadge(h,c)}</li>`).join('')}</ul>
     <p class="note">${esc(seatsLine(h))}</p></section>
-  <div class="map-wrap">${mapSVG({box,route:L.route.pts,markers,aria:'Planned route from pickup to your place'})}</div>
+  <div class="map-wrap">${mapAny({box,route:L.route.pts,markers,osrm:L.stops.map(x=>x.pos),aria:'Planned route from pickup to your place'})}</div>
   <section class="panel"><h3>The plan</h3>
-    <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note" style="text-align:right">${i?kmTxt(s.at-L.stops[i-1].at)+'<br>'+minTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
-    <div class="row" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b>${kmTxt(total)} · about ${minTxt(total)}</b></div></section>
+    <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note" style="text-align:right" data-leg="${i}">${i?kmTxt(s.at-L.stops[i-1].at)+'<br>'+minTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
+    <div class="row" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b id="planTotal">${kmTxt(total)} · about ${minTxt(total)}</b></div></section>
   <section class="panel"><h3>Car rules</h3><div class="chips">${h.rules.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div><p class="note">You agree to these when you confirm. ${esc(first)} agrees to the same rules for riders.</p></section>
   <section class="panel"><h3>Your choices</h3>
     ${h.house?`<div class="toggle" style="padding:0"><div><b>Add his place as a stop</b><div class="note">${ic('lock',12)} Area only (${esc(h.house.area)}). The address unlocks after you confirm.</div></div><button class="sw" role="switch" aria-checked="${D.house}" data-act="dhouse"></button></div>`:'<p class="note">He is not offering a stop at his place tonight.</p>'}
@@ -1114,6 +1173,7 @@ function renderSheet(){
   }
   root.innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${T[S.sheet]()}</div></div>`;
   const ns=root.querySelector('.sheet');if(ns)ns.scrollTop=(old&&S._sheetKept===S.sheet)?st:0;S._sheetKept=S.sheet;
+  hydrateMaps();
 }
 function openSheet(n){S.sheet=n;renderSheet();}
 function closeSheet(){const was=S.sheet;if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
@@ -1123,6 +1183,7 @@ function renderView(){
   const narrow=S.role==='host'||S.tab==='safety'||(S.tab==='trip'&&!(S.req&&S.req.status==='active'));
   v.innerHTML=narrow?`<div class="narrow">${html}</div>`:html;
   v.dataset.key=key;v.scrollTop=st;
+  hydrateMaps();
 }
 function renderAll(){renderHdr();renderView();renderTabs();renderSheet();}
 
@@ -1180,6 +1241,8 @@ function act(a,el,ev){
   switch(a){
     case 'role':S.role=v;renderAll();break;
     case 'tab':S.tab=v;if(S.role==='host')S.role='rider';renderAll();if(v==='tonight'||v==='map')loadLive();break;
+    case 'locate':if(!navigator.geolocation){toast('Location is not available on this device');break;}
+      navigator.geolocation.getCurrentPosition(p=>{S.myLL=[p.coords.latitude,p.coords.longitude];renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
     case 'follow':{const h=hostById(id);if(h)toggleFollow(h);break;}
     case 'going':toggleGoing(v);break;
     case 'onlyfol':S.onlyFol=!S.onlyFol;renderView();break;
