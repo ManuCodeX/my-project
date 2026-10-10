@@ -1220,10 +1220,13 @@ function act(a,el,ev){
     case 'fbsend':{const f=S.fb;
       if(!f.safe.trim()&&!f.notes.trim()&&!f.contact.trim()){f.err='Write a line of feedback or leave your contact first.';renderSheet();break;}
       f.busy=true;f.err='';renderSheet();
-      const body=new URLSearchParams({'form-name':'waitlist',role:f.role,use:f.use,name:f.name,contact:f.contact,city:f.city,safe:f.safe,notes:f.notes}).toString();
-      fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body})
-        .then(r=>{if(!r.ok)throw new Error('bad');f.sent=true;f.busy=false;if(S.sheet==='fb')renderSheet();})
-        .catch(()=>{f.busy=false;f.err='Could not send. Check your connection and try again.';if(S.sheet==='fb')renderSheet();});
+      const row={role:f.role,use:f.use,name:f.name.slice(0,80),contact:f.contact.slice(0,120),city:f.city.slice(0,80),safe:f.safe.slice(0,1500),notes:f.notes.slice(0,1500)};
+      const ok=()=>{f.sent=true;f.busy=false;if(S.sheet==='fb')renderSheet();};
+      const bad=()=>{f.busy=false;f.err='Could not send. Check your connection and try again.';if(S.sheet==='fb')renderSheet();};
+      const viaNetlify=()=>{const body=new URLSearchParams({'form-name':'waitlist',...row}).toString();
+        return fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}).then(r=>{if(!r.ok)throw new Error('bad');});};
+      if(SB){SB.from('feedback').insert(row).then(r=>{if(r&&r.error)return viaNetlify().then(ok,bad);ok();},()=>viaNetlify().then(ok,bad));}
+      else viaNetlify().then(ok,bad);
       break;}
     case 'scrim':if(el===ev.target&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();break;
     case 'dhouse':S.draft.house=!S.draft.house;renderSheet();break;
