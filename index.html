@@ -459,7 +459,9 @@ function mk(m,k){
 /* ---------- real map (Leaflet + OpenStreetMap). Falls back to the SVG map if Leaflet cannot load. ---------- */
 const LAT0=5.640,LNG0=-0.235,MPU=KM*1000;
 const toLL=p=>[LAT0-p[1]*MPU/111320,LNG0+p[0]*MPU/(111320*Math.cos(LAT0*Math.PI/180))];
-const MAPS={};let mapSeq=0,LMAPS=[];
+const fromLL=ll=>[(ll[1]-LNG0)*111320*Math.cos(LAT0*Math.PI/180)/MPU,(LAT0-ll[0])*111320/MPU];
+const nextName=h=>h.stopLL?(h.stopName||'Next stop'):VENUES[h.v].n;
+const MAPS={};let mapSeq=0,LMAPS=[];let PICK=null;
 const darkNow=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);};
 function mapAny(o){
   if(!window.L)return mapSVG(o);
@@ -479,7 +481,7 @@ function hydrateMaps(){
     const all=[];
     if(o.route&&o.route.length>1){const ll=o.route.map(toLL);const c=L.layerGroup().addTo(map);L.polyline(ll,{color:acc,weight:9,opacity:.28,lineCap:'round'}).addTo(c);const line=L.polyline(ll,{color:acc,weight:4,lineCap:'round',lineJoin:'round'}).addTo(c);el._line=line;el._lineBg=c;all.push(...ll);}
     (o.markers||[]).forEach(m=>{
-      const ll=toLL(m.pos);all.push(ll);
+      const ll=m.ll||toLL(m.pos);all.push(ll);
       if(m.kind==='fuzz'){L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map).bindTooltip(m.label||'Area only');return;}
       const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}">${m.kind==='park'?(m.count||''):(m.kind==='stop'?esc(m.glyph||''):'')}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
       const mk=L.marker(ll,{icon,keyboard:true,title:m.aria||m.label||''}).addTo(map);
@@ -487,9 +489,35 @@ function hydrateMaps(){
       if(m.hit)mk.on('click',()=>{const b=document.createElement('button');b.dataset.act='open';b.dataset.id=m.hit;document.body.appendChild(b);b.click();b.remove();});
     });
     if(S.myLL){const ll=S.myLL;L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="lpin me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:'You are here'}).addTo(map).bindTooltip('You are here');all.push(ll);}
-    if(all.length)map.fitBounds(L.latLngBounds(all).pad(0.18),{maxZoom:16});else map.setView([LAT0,LNG0],12);
+    if(o.picker){if(S.hostDraft.pickLL)all.push(S.hostDraft.pickLL);if(S.hostDraft.stopLL)all.push(S.hostDraft.stopLL);}
+    if(all.length===1)map.setView(all[0],15);else if(all.length)map.fitBounds(L.latLngBounds(all).pad(0.18),{maxZoom:16});else map.setView(S.myLL||[LAT0-0.03,LNG0+0.02],13);
+    if(o.picker){PICK={map,layer:L.layerGroup().addTo(map)};map.on('click',e=>pickAt([e.latlng.lat,e.latlng.lng]));redrawPick();}
     if(o.osrm)snapRoute(el,map,o.osrm);
   });
+}
+function pickAt(ll,name){
+  const d=S.hostDraft;
+  if(d.pickMode==='stop'){d.stopLL=ll;d.stopName=name||d.stopName||'Dropped pin';}else d.pickLL=ll;
+  redrawPick();
+}
+function redrawPick(){
+  const d=S.hostDraft;if(!PICK||!document.body.contains(PICK.map.getContainer()))return;
+  PICK.layer.clearLayers();
+  const add=(ll,k,g,t)=>L.marker(ll,{icon:L.divIcon({className:'',html:`<div class="lpin ${k}">${g}</div>`,iconSize:[30,30],iconAnchor:[15,15]})}).addTo(PICK.layer).bindTooltip(t);
+  if(d.pickLL)add(d.pickLL,'park','P','Pickup');
+  if(d.stopLL)add(d.stopLL,'stop','2',d.stopName||'Next stop');
+  const pi=document.getElementById('pickInfo');
+  if(pi)pi.innerHTML=(d.pickLL?'Pickup set. ':'No pickup yet. ')+(d.stopLL?'Next stop: <b>'+esc(d.stopName||'Dropped pin')+'</b>.':'No next stop yet.');
+}
+async function geoSearch(){
+  const d=S.hostDraft,q=(d.geoQ||'').trim();if(q.length<3){toast('Type at least 3 letters');return;}
+  d.geoBusy=true;renderView();
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=gh&q='+encodeURIComponent(q));
+    const j=await r.json();d.geo=(j||[]).map(x=>({name:(x.display_name||'').split(',').slice(0,3).join(',').trim(),ll:[parseFloat(x.lat),parseFloat(x.lon)]}));
+    if(!d.geo.length)toast('No places found. Try another name or tap the map.');
+  }catch(e){d.geo=[];toast('Search is unavailable. Tap the map instead.');}
+  d.geoBusy=false;renderView();
 }
 async function snapRoute(el,map,stops){
   try{
@@ -556,10 +584,12 @@ const friendPolicy=h=>h.friendsOk?(h.friendPref==='women'?'Friends welcome (wome
 const seatsLine=h=>`${h.seats} seat${h.seats===1?'':'s'} open · ${friendPolicy(h)}`;
 const seatsLeft=()=>S.hostDraft.seats-S.requests.filter(r=>r.status==='accepted').reduce((a,r)=>a+1+(r.friend?1:0),0);
 const legsFor=(h,withHouse)=>{
-  const ev=EVENTS[h.event],nx=VENUES[h.v];
-  const stops=[{name:'Pickup',sub:h.parkDesc+', '+h.parkM+' m from the gate',pos:ev.pos,kind:'park'},{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}];
+  const ev=EVENTS[h.event],nx=VENUES[h.v],real=!!(h.pickLL&&h.stopLL);
+  const stops=[{name:'Pickup',sub:h.parkDesc+(real?'':', '+h.parkM+' m from the gate'),pos:real?fromLL(h.pickLL):ev.pos,kind:'park'},
+    real?{name:h.stopName||'Next stop',sub:'Chosen by '+h.name.split(' ')[0],pos:fromLL(h.stopLL),kind:'stop'}:{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}];
   if(withHouse&&h.house)stops.push({name:'His place',sub:h.house.area+' (optional)',pos:h.house.pos,kind:'house'});
-  stops.push({name:'Drop-off at your place',sub:'Only you and your contacts see this',pos:HOME,kind:'home'});
+  const dropPos=(real&&S.myLL)?fromLL(S.myLL):HOME;
+  stops.push({name:(real&&S.myLL)?'Drop-off at your location':'Drop-off at your place',sub:'Only you and your contacts see this',pos:dropPos,kind:'home'});
   const r=buildRoute(stops.map(s=>s.pos));
   stops.forEach((s,i)=>{s.at=r.at[i];});
   return {stops,route:r};
@@ -593,7 +623,7 @@ function cardHTML(h){
     <div class="muted">${esc(h.color)} ${esc(h.car)} · parked ${h.parkM} m from ${esc(ev.venue)}</div>
     <div class="crewline"><div class="avs">${h.crew.slice(0,5).map(c=>crewAv(c,28)).join('')}</div><span><b>${crewLabel(h)}</b><span class="muted"> · ${crewMix(h)}</span></span></div>
     <div class="note">${seatsLine(h)}</div>
-    <div class="legs"><b>Pickup</b><span class="arrow">&rarr;</span><b>${esc(VENUES[h.v].n)}</b> ${kmTxt(toNext)}<span class="arrow">&rarr;</span><b>Your place</b> ${kmTxt(toHome)}</div>
+    <div class="legs"><b>Pickup</b><span class="arrow">&rarr;</span><b>${esc(nextName(h))}</b> ${kmTxt(toNext)}<span class="arrow">&rarr;</span><b>Your place</b> ${kmTxt(toHome)}</div>
     <button class="btn" data-act="open" data-id="${h.id}">See the plan</button>
   </div></article>`;
 }
@@ -655,7 +685,7 @@ function viewMap(){
   ['a','b'].forEach(eid=>{
     const hs=allHosts().filter(h=>h.event===eid);
     hs.forEach((h,i)=>{const a=-Math.PI/2+i*(2*Math.PI/hs.length)+0.6,r=hs.length===1?0:40;
-      markers.push({kind:'park',glyph:'P',pos:[EVENTS[eid].pos[0]+Math.cos(a)*r+(eid==='a'?0:0),EVENTS[eid].pos[1]+Math.sin(a)*r],count:h.crew.length,hit:h.id,aria:`${h.name}, ${h.crew.length} in the car, ${h.parkM} metres away`});});
+      markers.push({kind:'park',glyph:'P',pos:h.pickLL?fromLL(h.pickLL):[EVENTS[eid].pos[0]+Math.cos(a)*r,EVENTS[eid].pos[1]+Math.sin(a)*r],count:h.crew.length,hit:h.id,aria:`${h.name}, ${h.crew.length} in the car, ${h.parkM} metres away`});});
   });
   const order=['stop','event','home','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>Who is parked where</h2><p class="muted">Each amber pin is a host parked near the event. The number on the pin is how many people are in that car. Tap one to see the full plan.</p></div>
@@ -778,6 +808,15 @@ function viewHost(){
     <div class="toggle" style="padding:0"><div><b>Riders can bring a friend</b><div class="note">You still see and approve each friend.</div></div><button class="sw" role="switch" aria-checked="${d.friendsOk}" data-act="hfr"></button></div>
     ${d.friendsOk?`<div><div class="eyebrow" style="margin-bottom:8px">Friends can be</div><div class="chips"><button class="chip" data-act="hfp" data-v="any" aria-pressed="${d.friendPref==='any'}">Women or men</button><button class="chip" data-act="hfp" data-v="women" aria-pressed="${d.friendPref==='women'}">Women only</button></div></div>`:''}
     <div><div class="eyebrow" style="margin-bottom:8px">Car rules riders agree to</div><div class="chips">${RULES.map(r=>`<button class="chip" data-act="hrule" data-v="${r}" aria-pressed="${d.rules.includes(r)}">${r}</button>`).join('')}</div></div></section>
+  ${SB?`<section class="panel"><h3>Pin your real pickup and next stop</h3>
+    <p class="note">Optional. Riders then see the real route instead of the sample one. Choose what you are setting, then tap the map.</p>
+    <div class="chips" role="group" aria-label="What to set"><button class="chip" data-act="pickmode" data-v="pick" aria-pressed="${(d.pickMode||'pick')==='pick'}">Pickup spot</button><button class="chip" data-act="pickmode" data-v="stop" aria-pressed="${d.pickMode==='stop'}">Next stop</button></div>
+    ${window.L?mapAny({picker:true,markers:[],aria:'Tap the map to set a place'}):'<p class="note">The map could not load. Check your connection.</p>'}
+    <p class="note" id="pickInfo">${d.pickLL?'Pickup set. ':'No pickup yet. '}${d.stopLL?'Next stop: <b>'+esc(d.stopName||'Dropped pin')+'</b>.':'No next stop yet.'}</p>
+    <div class="actions"><button class="btn ghost act" data-act="geoloc">${ic('pin',18)}<span>My location</span></button>${(d.pickLL||d.stopLL)?'<button class="btn ghost act" data-act="pickclear"><span>Clear pins</span></button>':''}</div>
+    ${d.pickMode==='stop'?`<div style="display:flex;gap:10px;align-items:flex-end"><label class="fld" style="flex:1;min-width:0" for="f-q">Search a place in Ghana<input class="inp" id="f-q" data-f="geoQ" value="${esc(d.geoQ||'')}" placeholder="e.g. Osu Oxford Street"></label><button class="btn sm" style="flex:none;min-height:46px" data-act="geosearch" ${d.geoBusy?'disabled':''}>${d.geoBusy?'Searching…':'Search'}</button></div>
+    ${(d.geo&&d.geo.length)?`<ul class="list">${d.geo.map((g,i)=>`<li><button class="btn ghost sm" style="width:100%;justify-content:flex-start;text-align:left" data-act="geopick" data-i="${i}">${esc(g.name)}</button></li>`).join('')}</ul>`:''}`:''}
+  </section>`:''}
   <section class="panel"><h3>Where the night goes</h3>
     <label class="fld" for="f-v">Next stop<select class="inp" id="f-v" data-f="v">${VENUES.map((v,i)=>`<option value="${i}" ${d.v===i?'selected':''}>${esc(v.n)}</option>`).join('')}</select></label>
     <p class="note">${esc(venue.note)}</p>
@@ -1336,6 +1375,12 @@ function act(a,el,ev){
     case 'tglchk':S.settings.checkin=!S.settings.checkin;renderView();break;
     case 'fplus':S.hostDraft.friends.push({n:'',g:'Man',a:'27'});S.hostDraft.friends=S.hostDraft.friends.slice(0,7);renderView();break;
     case 'fminus':S.hostDraft.friends.pop();renderView();break;
+    case 'pickmode':S.hostDraft.pickMode=v;renderView();break;
+    case 'pickclear':S.hostDraft.pickLL=null;S.hostDraft.stopLL=null;S.hostDraft.stopName='';renderView();break;
+    case 'geoloc':if(!navigator.geolocation){toast('Location is not available on this device');break;}
+      navigator.geolocation.getCurrentPosition(p=>{S.hostDraft.pickLL=[p.coords.latitude,p.coords.longitude];S.myLL=S.hostDraft.pickLL;renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
+    case 'geosearch':geoSearch();break;
+    case 'geopick':{const g=(S.hostDraft.geo||[])[Number(el.dataset.i)];if(g){S.hostDraft.stopLL=g.ll;S.hostDraft.stopName=g.name;S.hostDraft.pickMode='stop';renderView();}break;}
     case 'hhouse':S.hostDraft.house=!S.hostDraft.house;renderView();break;
     case 'hvibe':{const a=S.hostDraft.vibe;const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
     case 'publish':SB?publishReal():publish();break;
@@ -1365,7 +1410,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&S.sheet&&!['dev','checkin','sos'].includes(S.sheet))closeSheet();
   if(e.key==='Enter'){const g=e.target.closest&&e.target.closest('g[data-act]');if(g)act(g.dataset.act,g,e);}
 });
-document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='chatIn'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='f-q'&&e.key==='Enter'){e.preventDefault();S.hostDraft.geoQ=t.value;geoSearch();return;}if(t&&t.id==='chatIn'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
 document.addEventListener('input',e=>{
   const el=e.target;
   if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
@@ -1387,7 +1432,7 @@ function planToHost(p,photo){
   const vn=VENUES[p.next_venue]||VENUES[0];
   return {id:'p_'+p.id,planId:p.id,real:true,mine,name:hn,rating:0,trips:0,car:p.car,color:p.color,plate:null,event:p.event,parkDesc:p.park_desc,parkM:p.park_m||100,
     crew:[[hn,'Driver',p.host.gender,p.host.age,photo||null],...friends],seats:p.seats,friendsOk:p.friends_ok,friendPref:p.friend_pref,rules:(p.rules&&p.rules.length)?p.rules:['Sober driver'],
-    v:VENUES[p.next_venue]?p.next_venue:0,house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
+    v:VENUES[p.next_venue]?p.next_venue:0,pickLL:(p.pickup_lat!=null&&p.pickup_lng!=null)?[p.pickup_lat,p.pickup_lng]:null,stopLL:(p.stop_lat!=null&&p.stop_lng!=null)?[p.stop_lat,p.stop_lng]:null,stopName:p.stop_name||'',house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
     vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,ig:p.host.instagram||null,hostUid:p.host_id,verified:false};
 }
 let liveBusy=false;
@@ -1459,6 +1504,8 @@ async function publishReal(){
       next_venue:d.v,house_offered:d.house,house_area:'Nearby',house_idx:Math.floor(Math.random()*HOUSES.length),seats:d.seats,friends_ok:d.friendsOk,friend_pref:d.friendPref,
       rules:d.rules.length?d.rules.slice():['Sober driver'],vibe:d.vibe.length?d.vibe.slice():['Chill'],
       crew:d.friends.map(f=>({n:(f.n||'Friend').trim().slice(0,40),g:f.g,a:Number(f.a)||27})),active:true};
+    if(d.pickLL){row.pickup_lat=d.pickLL[0];row.pickup_lng=d.pickLL[1];}
+    if(d.stopLL){row.stop_name=(d.stopName||'Next stop').slice(0,80);row.stop_lat=d.stopLL[0];row.stop_lng=d.stopLL[1];}
     let vlogPath=null;
     if(d.vlogFile){
       toast('Uploading your vlog…');
@@ -1469,7 +1516,12 @@ async function publishReal(){
     row.vlog_path=vlogPath;
     const off=await SB.from('plans').update({active:false}).eq('host_id',A.user.id).eq('active',true);
     if(off.error)throw off.error;
-    const ins=await SB.from('plans').insert(row).select('id').single();
+    let ins=await SB.from('plans').insert(row).select('id').single();
+    if(ins.error&&/pickup_|stop_/.test(ins.error.message||'')){
+      ['pickup_lat','pickup_lng','stop_name','stop_lat','stop_lng'].forEach(k=>delete row[k]);
+      ins=await SB.from('plans').insert(row).select('id').single();
+      if(!ins.error)toast('Posted without your pins. Run supabase-step11-places.sql to save real places.');
+    }
     if(ins.error)throw ins.error;
     const pr=await SB.from('plan_private').insert({plan_id:ins.data.id,plate:d.plate.trim().toUpperCase().slice(0,20)});
     if(pr.error)throw pr.error;
