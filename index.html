@@ -406,6 +406,17 @@ const hosts=[
    v:4,house:null,vibe:['Party','Music'],leaving:'2:10 AM',vlog:['Big group, big energy','City view cocktails','We drop everyone off']}
 ];
 hosts.forEach(h=>h.verified=true);
+(function(){try{const d=JSON.parse(localStorage.getItem('pu_drop')||'null');if(d&&d.ll){window.__drop=d;}}catch(e){}})();
+function dropSave(){try{if(S.dropLL)localStorage.setItem('pu_drop',JSON.stringify({ll:S.dropLL,name:S.dropName}));else localStorage.removeItem('pu_drop');}catch(e){}}
+async function dropSearch(){
+  const q=(($('#dr-q')||{}).value||'').trim();if(q.length<3){toast('Type at least 3 letters');return;}
+  S.dropQ=q;S.dropBusy=true;renderView();
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=gh&q='+encodeURIComponent(q));const j=await r.json();
+    S.dropRes=(j||[]).map(x=>({name:(x.display_name||'').split(',').slice(0,3).join(',').trim(),ll:[parseFloat(x.lat),parseFloat(x.lon)]}));
+    if(!S.dropRes.length)toast('No places found. Try a landmark or area name.');}
+  catch(e){S.dropRes=[];toast('Search is unavailable right now.');}
+  S.dropBusy=false;renderView();
+}
 function ctLoad(){try{const a=JSON.parse(localStorage.getItem('pu_contacts')||'null');if(Array.isArray(a))return a;}catch(e){}return [];}
 function ctSave(){try{localStorage.setItem('pu_contacts',JSON.stringify(CONTACTS));}catch(e){}}
 const CONTACTS=ctLoad();
@@ -653,6 +664,7 @@ const S={
   posted:null,live:[],liveErr:'',publishing:false,vlog:{id:null,i:0,url:'',loading:false,err:''},
   fb:{role:'Rider',use:'Yes',name:'',contact:'',city:'Accra',safe:'',notes:'',sent:false,busy:false,err:''}
 };
+if(window.__drop){S.dropLL=window.__drop.ll;S.dropName=window.__drop.name;}
 let toastT=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2600);}
 const wide=()=>window.matchMedia('(min-width:900px)').matches;
@@ -683,8 +695,8 @@ const legsFor=(h,withHouse)=>{
   const stops=[{name:'Pickup',sub:h.parkDesc+(real?'':', '+h.parkM+' m from the gate'),pos:real?fromLL(h.pickLL):ev.pos,kind:'park'},
     real?{name:h.stopName||'Next stop',sub:'Chosen by '+h.name.split(' ')[0],pos:fromLL(h.stopLL),kind:'stop'}:{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}];
   if(withHouse&&h.house)stops.push({name:'His place',sub:h.house.area+' (optional)',pos:h.house.pos,kind:'house'});
-  const dropPos=(real&&S.myLL)?fromLL(S.myLL):HOME;
-  stops.push({name:(real&&S.myLL)?'Drop-off at your location':'Drop-off at your place',sub:'Only you and your contacts see this',pos:dropPos,kind:'home'});
+  const dl=S.dropLL||(S.myLL),dropPos=(real&&dl)?fromLL(dl):HOME;
+  stops.push({name:(real&&S.dropLL)?'Drop-off: '+(S.dropName||'your address'):(real&&S.myLL)?'Drop-off at your location':'Drop-off at your place',sub:'Only you and your contacts see this',pos:dropPos,kind:'home'});
   const r=buildRoute(stops.map(s=>s.pos));
   stops.forEach((s,i)=>{s.at=r.at[i];});
   return {stops,route:r};
@@ -836,6 +848,11 @@ function viewSafety(){
   const sw=(on,act,id)=>`<button class="sw" role="switch" aria-checked="${on}" data-act="${act}" data-id="${id||''}"></button>`;
   return `<div class="hero"><span class="eyebrow">Profile and safety</span><h2>Set it once, it runs on every ride</h2></div>
   ${profilePanel()}
+  <section class="panel"><h3>Your drop-off address</h3>
+    ${S.dropLL?`<div class="toggle" style="padding:2px 0"><div><b>${esc(S.dropName||'Saved address')}</b><div class="note">Used as the last stop on every plan</div></div><button class="chip" data-act="dropclear">Remove</button></div>`:'<p class="note">Search the area or landmark where you want to be dropped.</p>'}
+    <div class="field"><input id="dr-q" placeholder="e.g. East Legon, Madina Market" value="${esc(S.dropQ||'')}" maxlength="80"><button class="btn ghost" data-act="dropsearch" style="margin-top:6px" ${S.dropBusy?'disabled':''}>${S.dropBusy?'Searching':'Search'}</button></div>
+    ${(S.dropRes||[]).map((g,i)=>`<button class="chip" style="display:block;margin:4px 0;text-align:left" data-act="droppick" data-i="${i}">${esc(g.name)}</button>`).join('')}
+    <p class="note">Saved on this device only. Hosts never see it. Only you and your trusted contacts do.</p></section>
   <section class="panel"><h3>Trusted contacts</h3>
     ${CONTACTS.map(c=>`<div class="toggle" style="padding:2px 0"><div class="crewline">${av(c.name,34)}<div><b>${esc(c.name)}</b><div class="note">${esc(c.phone)}</div></div></div><span style="display:flex;gap:8px;align-items:center">${sw(st.share[c.id]!==false,'tglc',c.id)}<button class="chip" data-act="ctdel" data-id="${c.id}" aria-label="Remove ${esc(c.name)}">Remove</button></span></div>`).join('')||'<p class="note">No contacts yet.</p>'}
     <div class="field"><input id="ct-name" placeholder="Name (e.g. Ama)" maxlength="40"><input id="ct-phone" type="tel" inputmode="tel" placeholder="Phone, e.g. 024 123 4567" maxlength="20" style="margin-top:6px"><button class="btn ghost" data-act="ctadd" style="margin-top:6px">Add contact</button></div>
@@ -1458,6 +1475,9 @@ function act(a,el,ev){
     case 'racc':{const r=S.requests.find(x=>x.id===id);r.status='accepted';toast(r.name+' accepted. She confirms at pickup.');renderView();break;}
     case 'rdec':{const r=S.requests.find(x=>x.id===id);r.status='declined';renderView();break;}
     case 'sos':if(S.trip){S.trip.sos=true;logT('SOS opened, contacts alerted by you','bad');}sosLocate();openSheet('sos');break;
+    case 'dropsearch':dropSearch();break;
+    case 'droppick':{const g=(S.dropRes||[])[Number(el.dataset.i)];if(g){S.dropLL=g.ll;S.dropName=g.name;S.dropRes=[];S.dropQ='';dropSave();toast('Drop-off saved');renderView();}break;}
+    case 'dropclear':S.dropLL=null;S.dropName='';dropSave();renderView();break;
     case 'ctadd':{const n=($('#ct-name')||{}).value||'',p=($('#ct-phone')||{}).value||'';if(!n.trim()||ctPhone(p).length<9){toast('Enter a name and a valid phone number');break;}CONTACTS.push({id:'c'+Date.now(),name:n.trim(),rel:'',phone:p.trim()});ctSave();renderView();break;}
     case 'ctdel':{const i=CONTACTS.findIndex(c=>c.id===id);if(i>=0)CONTACTS.splice(i,1);ctSave();renderView();break;}
     case 'soscancel':if(S.trip){S.trip.sos=false;S.trip.dev=false;logT('SOS cancelled by you','good');last=performance.now();}closeSheet();renderView();break;
