@@ -210,6 +210,12 @@ p{margin:0}
 .lpin.event{background:#7A5AF8;color:#fff}.lpin.home{background:var(--good);color:#fff}.lpin.stop{background:var(--ink);color:var(--bg);width:26px;height:26px;font-size:11px}
 .lpin.you{background:var(--me);color:#fff;width:18px;height:18px;border-width:3px}
 .lpin.park{width:34px;height:34px;font-size:14px}
+.lpin.car{background:var(--accent);width:36px;height:36px;box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 28%,transparent),0 3px 10px rgba(0,0,0,.45)}
+.lpin.car.off{background:var(--bad);color:#fff;box-shadow:0 0 0 8px color-mix(in srgb,var(--bad) 30%,transparent)}
+.livebar{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;background:var(--surface-2);font-size:13px}
+.livebar i{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good);flex:none}
+.livebar.stale i{background:var(--ink-2);box-shadow:none}
+.livebar.off{background:var(--bad-soft);color:var(--ink)}.livebar.off i{background:var(--bad);box-shadow:0 0 8px var(--bad)}
 .lpin.me{background:#1769AA;width:16px;height:16px;border-width:3px;box-shadow:0 0 0 8px rgba(23,105,170,.25)}
 .leaflet-tooltip{font-weight:700;border-radius:8px}
 .map-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--m-land);position:relative}
@@ -461,7 +467,77 @@ const LAT0=5.640,LNG0=-0.235,MPU=KM*1000;
 const toLL=p=>[LAT0-p[1]*MPU/111320,LNG0+p[0]*MPU/(111320*Math.cos(LAT0*Math.PI/180))];
 const fromLL=ll=>[(ll[1]-LNG0)*111320*Math.cos(LAT0*Math.PI/180)/MPU,(LAT0-ll[0])*111320/MPU];
 const nextName=h=>h.stopLL?(h.stopName||'Next stop'):VENUES[h.v].n;
-const MAPS={};let mapSeq=0,LMAPS=[];let PICK=null;
+const MAPS={};let mapSeq=0,LMAPS=[];let PICK=null,LIVE=null;const ROUTES={};
+function distToRouteM(p,line){
+  if(!line||line.length<2)return null;
+  const kx=111320*Math.cos(p[0]*Math.PI/180),ky=111320;let best=Infinity;
+  for(let i=0;i<line.length-1;i++){
+    const ax=(line[i][1]-p[1])*kx,ay=(line[i][0]-p[0])*ky,bx=(line[i+1][1]-p[1])*kx,by=(line[i+1][0]-p[0])*ky;
+    const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let t=l2?-(ax*dx+ay*dy)/l2:0;t=Math.max(0,Math.min(1,t));
+    const cx=ax+t*dx,cy=ay+t*dy,d=Math.hypot(cx,cy);if(d<best)best=d;
+  }
+  return best;
+}
+function startLivePoll(planId){
+  stopLivePoll();
+  if(!LIVE)return;
+  LIVE.planId=planId;LIVE.offCount=0;
+  pollLive();S.liveTimer=setInterval(pollLive,5000);
+}
+function stopLivePoll(){if(S.liveTimer){clearInterval(S.liveTimer);S.liveTimer=null;}}
+async function pollLive(){
+  const lv=LIVE;if(!lv||!document.body.contains(lv.map.getContainer())){stopLivePoll();return;}
+  const bar=document.getElementById('liveBar'),txt=document.getElementById('liveTxt');
+  try{
+    const r=await SB.from('live_pos').select('lat,lng,heading,updated_at').eq('plan_id',lv.planId).maybeSingle();
+    const d=r&&r.data;
+    if(!d){if(bar)bar.className='livebar stale';if(txt)txt.textContent='Live location is off. The host has not started sharing yet.';return;}
+    const age=Math.max(0,Math.round((Date.now()-new Date(d.updated_at).getTime())/1000));
+    const ll=[d.lat,d.lng];
+    if(!lv.car){lv.car=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="lpin car" id="carPin">'+ic('car',18)+'</div>',iconSize:[36,36],iconAnchor:[18,18]}),title:'The car'}).addTo(lv.map);lv.map.panTo(ll);}
+    else lv.car.setLatLng(ll);
+    if(age>120){if(bar)bar.className='livebar stale';if(txt)txt.textContent='Last seen '+(age>3600?'over an hour':Math.round(age/60)+' min')+' ago. Waiting for a new update.';return;}
+    const dev=distToRouteM(ll,ROUTES[lv.key]);
+    const thr=(S.settings.threshold||0.5)*1000;
+    const off=dev!=null&&dev>thr;
+    lv.offCount=off?lv.offCount+1:0;
+    const alertNow=lv.offCount>=2;
+    const pin=document.getElementById('carPin');if(pin)pin.classList.toggle('off',alertNow);
+    if(bar)bar.className='livebar'+(alertNow?' off':'');
+    if(txt)txt.textContent=alertNow?'The car is '+(dev>=1000?(dev/1000).toFixed(1)+' km':Math.round(dev)+' m')+' off the planned route. Check in with the host or your contacts.':'Live now. Updated '+(age<5?'just now':age+' s ago')+(dev!=null?'. On the planned route.':'.');
+    if(alertNow&&!lv.alerted){lv.alerted=true;toast('The car left the planned route');}
+    if(!alertNow)lv.alerted=false;
+  }catch(e){}
+}
+/* host side sharing */
+async function startSharing(){
+  const h=S.posted;if(!h||!h.real||!SB||!navigator.geolocation){toast('Location is not available on this device');return;}
+  if(S.watchId!=null)return;
+  S.sharing=true;S.lastSent=0;S.shareErr='';
+  try{if(navigator.wakeLock)S.wake=await navigator.wakeLock.request('screen');}catch(e){}
+  S.watchId=navigator.geolocation.watchPosition(async p=>{
+    S.lastLL=[p.coords.latitude,p.coords.longitude];
+    if(Date.now()-S.lastSent<7000)return;S.lastSent=Date.now();
+    const r=await SB.from('live_pos').upsert({plan_id:h.planId,lat:p.coords.latitude,lng:p.coords.longitude,heading:p.coords.heading,updated_at:new Date().toISOString()});
+    S.shareErr=(r&&r.error)?(/relation|live_pos/i.test(r.error.message||'')?'Needs the step 12 database update.':'Could not send your location.'):'';
+    const el=document.getElementById('shareInfo');if(el)el.textContent=S.shareErr||('Sharing. Last sent '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  },()=>{S.shareErr='Location permission was denied.';stopSharing();},{enableHighAccuracy:true,maximumAge:3000,timeout:20000});
+  renderView();
+}
+function stopSharing(){
+  if(S.watchId!=null){navigator.geolocation.clearWatch(S.watchId);S.watchId=null;}
+  if(S.wake){try{S.wake.release();}catch(e){}S.wake=null;}
+  const h=S.posted;if(S.sharing&&h&&h.real&&SB)SB.from('live_pos').delete().eq('plan_id',h.planId).then(()=>{},()=>{});
+  S.sharing=false;renderView();
+}
+function livePanel(){
+  const h=S.posted;if(!h||!h.real||!SB)return '';
+  return `<section class="panel"><div class="row"><h3>Live location</h3>${S.sharing?'<span class="tag" style="background:var(--good);color:var(--bg)">Sharing</span>':''}</div>
+  <p class="note">Turn this on when you are driving a rider. Only riders you accepted can see the car, and only while this is on. Keep this page open and the screen awake.</p>
+  <p class="note" id="shareInfo" style="color:var(--bad)">${esc(S.shareErr||'')}</p>
+  <button class="btn ${S.sharing?'ghost':''}" data-act="livetoggle">${S.sharing?'Stop sharing':'Share live location'}</button></section>`;
+}
+
 const darkNow=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);};
 function mapAny(o){
   if(!window.L)return mapSVG(o);
@@ -492,7 +568,9 @@ function hydrateMaps(){
     if(o.picker){if(S.hostDraft.pickLL)all.push(S.hostDraft.pickLL);if(S.hostDraft.stopLL)all.push(S.hostDraft.stopLL);}
     if(all.length===1)map.setView(all[0],15);else if(all.length)map.fitBounds(L.latLngBounds(all).pad(0.18),{maxZoom:16});else map.setView(S.myLL||[LAT0-0.03,LNG0+0.02],13);
     if(o.picker){PICK={map,layer:L.layerGroup().addTo(map)};map.on('click',e=>pickAt([e.latlng.lat,e.latlng.lng]));redrawPick();}
-    if(o.osrm)snapRoute(el,map,o.osrm);
+    if(o.routeKey&&o.route&&o.route.length>1)ROUTES[o.routeKey]=o.route.map(toLL);
+    if(o.live){LIVE={map,key:o.routeKey,car:null,planId:o.live,offCount:0,alerted:false};startLivePoll(o.live);}
+    if(o.osrm)snapRoute(el,map,o.osrm,o.routeKey);
   });
 }
 function pickAt(ll,name){
@@ -519,16 +597,17 @@ async function geoSearch(){
   }catch(e){d.geo=[];toast('Search is unavailable. Tap the map instead.');}
   d.geoBusy=false;renderView();
 }
-async function snapRoute(el,map,stops){
+async function snapRoute(el,map,stops,key){
   try{
     const coords=stops.map(toLL).map(p=>p[1].toFixed(5)+','+p[0].toFixed(5)).join(';');
     const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson');
     if(!r.ok)return;const j=await r.json();const rt=j&&j.routes&&j.routes[0];if(!rt)return;
     const ll=rt.geometry.coordinates.map(c=>[c[1],c[0]]);
+    if(key)ROUTES[key]=ll;
     if(el._line){el._line.setLatLngs(ll);el._lineBg.eachLayer(l=>{if(l!==el._line)l.setLatLngs(ll);});}
     (rt.legs||[]).forEach((lg,i)=>{const t=document.querySelector('[data-leg="'+(i+1)+'"]');if(t)t.innerHTML=(lg.distance/1000).toFixed(1)+' km<br>'+Math.max(1,Math.round(lg.duration/60))+' min';});
     const tot=document.getElementById('planTotal');if(tot)tot.textContent=(rt.distance/1000).toFixed(1)+' km · about '+Math.max(1,Math.round(rt.duration/60))+' min by road';
-    if(map)map.fitBounds(L.polyline(ll).getBounds().pad(0.15),{maxZoom:16});
+    if(map&&!(LIVE&&LIVE.map===map&&LIVE.car))map.fitBounds(L.polyline(ll).getBounds().pad(0.15),{maxZoom:16});
   }catch(e){}
 }
 function mapSVG(o){
@@ -786,7 +865,7 @@ function requestsHTML(){
 }
 function viewHost(){
   const d=S.hostDraft,venue=VENUES[d.v];
-  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
+  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${livePanel()}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
   return `<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
   ${SB&&!S.auth.profile?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in and create your profile to post a live plan.</span><button class="btn sm" data-act="tab" data-v="safety">Go</button></div>`:''}
   <section class="panel"><h3>The event</h3>
@@ -1111,7 +1190,7 @@ function sheetDetail(){
   <section class="panel"><div class="row"><h3>In the car</h3><span class="tag crew">${ic('users',13)}${h.crew.length}</span></div>
     <ul class="list">${h.crew.map(c=>`<li class="crewline">${crewAv(c,44,!h.real)}<span style="flex:1;min-width:0"><b>${esc(c[0])}</b><span class="note" style="display:block">${c[2]}, ${c[3]} · ${c[1]}</span></span>${crewBadge(h,c)}</li>`).join('')}</ul>
     <p class="note">${esc(seatsLine(h))}</p></section>
-  <div class="map-wrap">${mapAny({box,route:L.route.pts,markers,osrm:L.stops.map(x=>x.pos),aria:'Planned route from pickup to your place'})}</div>
+  <div class="map-wrap">${q&&q.status==='accepted'?`<div class="livebar stale" id="liveBar"><i></i><span id="liveTxt">Looking for the car…</span></div>`:''}${mapAny({box,route:L.route.pts,markers,osrm:L.stops.map(x=>x.pos),routeKey:'p'+(h.planId||h.id),live:(h.real&&q&&q.status==='accepted')?h.planId:null,aria:'Planned route from pickup to your place'})}</div>
   <section class="panel"><h3>The plan</h3>
     <ul class="list">${L.stops.map((s,i)=>`<li class="stop"><span class="n">${i+1}</span><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><span class="note" style="text-align:right" data-leg="${i}">${i?kmTxt(s.at-L.stops[i-1].at)+'<br>'+minTxt(s.at-L.stops[i-1].at):''}</span></li>`).join('')}</ul>
     <div class="row" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b id="planTotal">${kmTxt(total)} · about ${minTxt(total)}</b></div></section>
@@ -1217,7 +1296,7 @@ function renderSheet(){
   hydrateMaps();
 }
 function openSheet(n){S.sheet=n;renderSheet();}
-function closeSheet(){const was=S.sheet;if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
+function closeSheet(){const was=S.sheet;if(was==='detail'){stopLivePoll();LIVE=null;}if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
 function renderView(){
   const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
   const html=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
@@ -1384,7 +1463,8 @@ function act(a,el,ev){
     case 'hhouse':S.hostDraft.house=!S.hostDraft.house;renderView();break;
     case 'hvibe':{const a=S.hostDraft.vibe;const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
     case 'publish':SB?publishReal():publish();break;
-    case 'endplan':endPlan();break;
+    case 'livetoggle':if(S.sharing)stopSharing();else startSharing();break;
+    case 'endplan':if(S.sharing)stopSharing();endPlan();break;
     case 'seerider':S.role='rider';S.tab='tonight';S.event=S.posted.event;renderAll();break;
     case 'editplan':S.posted=null;renderView();break;
   }
