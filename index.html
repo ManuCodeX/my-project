@@ -417,6 +417,43 @@ async function dropSearch(){
   catch(e){S.dropRes=[];toast('Search is unavailable right now.');}
   S.dropBusy=false;renderView();
 }
+const EV_COUNTRIES=[['GH','Ghana'],['NG','Nigeria'],['ZA','South Africa'],['KE','Kenya'],['GB','United Kingdom'],['US','United States']];
+function evWhen(iso){try{const d=new Date(iso);return d.toLocaleString([], {weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
+function evAdd(r){EVENTS[r.id]={id:r.id,name:r.name,venue:r.venue,pos:fromLL([r.lat,r.lng]),ends:'Starts '+evWhen(r.starts_at),real:true,row:r};}
+async function loadEvents(){
+  if(!SB)return;
+  try{
+    const r=await SB.from('events').select('*').gt('starts_at',new Date(Date.now()-18*3600e3).toISOString()).lt('starts_at',new Date(Date.now()+30*864e5).toISOString()).order('starts_at',{ascending:true}).limit(100);
+    if(r.error){S.evOff=true;return;}
+    S.evOff=false;const ids=new Set((r.data||[]).map(x=>x.id));
+    Object.keys(EVENTS).forEach(k=>{if(EVENTS[k].real&&!ids.has(k)&&!(S.hostDraft&&S.hostDraft.event===k))delete EVENTS[k];});
+    (r.data||[]).forEach(evAdd);
+  }catch(e){S.evOff=true;}
+}
+async function loadTm(){
+  const c=S.hostDraft.country;S.tmFor=c;
+  try{const r=await fetch('/api/events?country='+c);const j=await r.json();if(S.hostDraft.country===c){S.tm=(j.events||[]).filter(x=>new Date(x.starts_at)>Date.now()-18*3600e3);renderView();}}catch(e){S.tm=[];}
+}
+async function evSaveRow(r){
+  if(!SB||!S.auth.user)return true;
+  const e=await SB.from('events').upsert({id:r.id,name:r.name,venue:r.venue,lat:r.lat,lng:r.lng,starts_at:r.starts_at,source:r.id.startsWith('tm_')?'ticketmaster':'host',created_by:S.auth.user.id},{onConflict:'id',ignoreDuplicates:true});
+  return !e.error;
+}
+async function neSearch(){
+  const d=S.hostDraft,q=(($('#ne-q')||{}).value||'').trim();d.neName=($('#ne-name')||{}).value||'';d.neWhen=($('#ne-when')||{}).value||'';d.neQ=q;
+  if(q.length<3){toast('Type the venue name or area');return;}
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=gh&q='+encodeURIComponent(q));const j=await r.json();
+    d.neRes=(j||[]).map(x=>({name:(x.display_name||'').split(',').slice(0,2).join(',').trim(),ll:[parseFloat(x.lat),parseFloat(x.lon)]}));if(!d.neRes.length)toast('No places found. Try the area name.');}
+  catch(e){d.neRes=[];toast('Search is unavailable right now.');}
+  renderView();
+}
+async function neSave(){
+  const d=S.hostDraft;d.neName=(($('#ne-name')||{}).value||'').trim();d.neWhen=($('#ne-when')||{}).value||'';
+  if(d.neName.length<2||!d.neLL||!d.neWhen){toast('Add the event name, date and time, and pick the venue');return;}
+  const r={id:'u_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:d.neName.slice(0,80),venue:(d.neVenue||'Venue').slice(0,80),lat:d.neLL[0],lng:d.neLL[1],starts_at:new Date(d.neWhen).toISOString()};
+  if(SB&&S.auth.user){if(!(await evSaveRow(r))){toast('Could not save the event. Run the step 13 database update.');return;}}
+  evAdd(r);d.event=r.id;d.addEv=false;d.neRes=[];d.neLL=null;d.neName='';d.neQ='';d.neWhen='';toast('Event added');renderView();
+}
 function ctLoad(){try{const a=JSON.parse(localStorage.getItem('pu_contacts')||'null');if(Array.isArray(a))return a;}catch(e){}return [];}
 function ctSave(){try{localStorage.setItem('pu_contacts',JSON.stringify(CONTACTS));}catch(e){}}
 const CONTACTS=ctLoad();
@@ -660,7 +697,7 @@ const S={
     {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
     {id:'q3',name:'Maame K.',age:25,shows:99,rating:5.0,vibes:['Dinner','Quiet'],friend:{name:'Jay',gender:'Man',age:27},status:'new'}
   ],
-  hostDraft:{event:'a',name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
+  hostDraft:{event:'a',country:(((navigator.language||'').split('-')[1]||'GH').toUpperCase().match(/^(GH|NG|ZA|KE|GB|US)$/)||['GH'])[0],name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
   posted:null,live:[],liveErr:'',publishing:false,vlog:{id:null,i:0,url:'',loading:false,err:''},
   fb:{role:'Rider',use:'Yes',name:'',contact:'',city:'Accra',safe:'',notes:'',sent:false,busy:false,err:''}
 };
@@ -773,7 +810,7 @@ function viewTonight(){
   const grp=[[99,'Any group'],[1,'Just him'],[3,'Up to 3'],[5,'Up to 5']];
   return `<div class="hero"><span class="eyebrow">Tonight near you</span><h1>The event's over. Pick your ride.</h1><p class="muted">You choose who you move with. Hosts can't message you first.</p></div>
   ${storiesRow()}
-  <div class="chips" role="group" aria-label="Event">${[['all','All events'],['a',EVENTS.a.name],['b',EVENTS.b.name]].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
+  <div class="chips" role="group" aria-label="Event">${[['all','All events'],...Object.values(EVENTS).filter(e=>!e.ghost).map(e=>[e.id,e.name])].map(e=>`<button class="chip" data-act="evt" data-v="${e[0]}" aria-pressed="${S.event===e[0]}">${esc(e[1])}</button>`).join('')}</div>
   ${SB&&A_ok()?`<div class="chips" role="group" aria-label="Following"><button class="chip" data-act="onlyfol" aria-pressed="${S.onlyFol}">Following${S.fol.size?' · '+S.fol.size:''}</button></div>`:''}
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm. Hosts who fit your vibe show first.</span></div>
@@ -782,14 +819,14 @@ function viewTonight(){
   <section class="panel"><h3>Help shape Pull Up</h3><p class="muted">This is an early prototype. Tell us what feels right, what worries you and whether you would use it. Leave your WhatsApp or email to hear when it opens.</p><button class="btn" data-act="fb">Share feedback or join the waitlist</button></section>`;
 }
 function viewMap(){
-  const pts=[EVENTS.a.pos,EVENTS.b.pos,...VENUES.map(v=>v.pos),HOME];
+  const pts=[...Object.values(EVENTS).map(e=>e.pos),...VENUES.map(v=>v.pos),HOME];
   const box=boxFor(pts,wide()?1.5:0.9,66,300);
   const markers=[];
   markers.push({kind:'home',pos:HOME,label:'Your place'});
   Object.values(EVENTS).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.venue}));
   VENUES.forEach((v,i)=>markers.push({kind:'stop',pos:v.pos,glyph:'',label:v.n}));
   if(S.event!=='all')markers.push({kind:'you',pos:EVENTS[S.event].pos,label:''});
-  ['a','b'].forEach(eid=>{
+  Object.keys(EVENTS).forEach(eid=>{
     const hs=allHosts().filter(h=>h.event===eid);
     hs.forEach((h,i)=>{const a=-Math.PI/2+i*(2*Math.PI/hs.length)+0.6,r=hs.length===1?0:40;
       markers.push({kind:'park',glyph:'P',pos:h.pickLL?fromLL(h.pickLL):[EVENTS[eid].pos[0]+Math.cos(a)*r,EVENTS[eid].pos[1]+Math.sin(a)*r],count:h.crew.length,hit:h.id,aria:`${h.name}, ${h.crew.length} in the car, ${h.parkM} metres away`});});
@@ -902,8 +939,19 @@ function viewHost(){
   if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${livePanel()}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
   return `<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
   ${SB&&!S.auth.profile?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in and create your profile to post a live plan.</span><button class="btn sm" data-act="tab" data-v="safety">Go</button></div>`:''}
+  ${(()=>{if(S.tmFor!==d.country&&!S.tmBusy){S.tmFor=d.country;setTimeout(loadTm,0);}return '';})()}
   <section class="panel"><h3>The event</h3>
-    <label class="fld" for="f-event">Which event are you parked at?<select class="inp" id="f-event" data-f="event">${Object.values(EVENTS).map(e=>`<option value="${e.id}" ${d.event===e.id?'selected':''}>${esc(e.name)} at ${esc(e.venue)}</option>`).join('')}</select></label>
+    <div class="two"><label class="fld" for="f-country">Find events in<select class="inp" id="f-country" data-f="country">${EV_COUNTRIES.map(c=>`<option value="${c[0]}" ${d.country===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select></label>
+    <label class="fld" for="f-event">Which event are you parked at?<select class="inp" id="f-event" data-f="event">${(()=>{const L=Object.values(EVENTS).sort((a,b)=>(a.real?1:0)-(b.real?1:0)||0),tm=(S.tm||[]).filter(x=>!EVENTS[x.id]);return `<optgroup label="Events">${L.map(e=>`<option value="${e.id}" ${d.event===e.id?'selected':''}>${esc(e.name)} at ${esc(e.venue)}${e.real?' ('+esc(e.ends.replace('Starts ',''))+')':''}</option>`).join('')}</optgroup>${tm.length?`<optgroup label="Listed near you">${tm.map(x=>`<option value="${x.id}">${esc(x.name)} at ${esc(x.venue)} (${esc(evWhen(x.starts_at))})</option>`).join('')}</optgroup>`:''}<option value="__new">+ Add an event that is not listed</option>`;})()}</select></label></div>
+    ${d.addEv?`<div class="panel" style="margin:6px 0"><h3>Add an event</h3>
+      <label class="fld" for="ne-name">Event name<input class="inp" id="ne-name" maxlength="80" value="${esc(d.neName||'')}" placeholder="e.g. Afrobeats Friday"></label>
+      <label class="fld" for="ne-when">Starts<input class="inp" id="ne-when" type="datetime-local" value="${esc(d.neWhen||'')}"></label>
+      <label class="fld" for="ne-q">Venue or area<input class="inp" id="ne-q" maxlength="80" value="${esc(d.neQ||'')}" placeholder="e.g. Skybar 25, Accra"></label>
+      <button class="btn ghost" data-act="nesearch">Search venue</button>
+      ${d.neVenue?`<p class="note">Venue: <b>${esc(d.neVenue)}</b></p>`:''}
+      ${(d.neRes||[]).map((g,i)=>`<button class="chip" style="display:block;margin:4px 0;text-align:left" data-act="nepick" data-i="${i}">${esc(g.name)}</button>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" data-act="nesave">Add event</button><button class="btn ghost" data-act="necancel">Cancel</button></div></div>`:''}
+    ${S.evOff&&SB?'<p class="note">Shared events need the step 13 database update.</p>':''}
     <label class="fld" for="f-park">Where are you parked?<input class="inp" id="f-park" data-f="park" value="${esc(d.park)}"></label>
     <label class="fld" for="f-time">Leaving at<input class="inp" id="f-time" type="time" data-f="leaving" value="${esc(d.leaving)}"></label></section>
   <section class="panel"><h3>You and the car</h3>
@@ -1475,6 +1523,10 @@ function act(a,el,ev){
     case 'racc':{const r=S.requests.find(x=>x.id===id);r.status='accepted';toast(r.name+' accepted. She confirms at pickup.');renderView();break;}
     case 'rdec':{const r=S.requests.find(x=>x.id===id);r.status='declined';renderView();break;}
     case 'sos':if(S.trip){S.trip.sos=true;logT('SOS opened, contacts alerted by you','bad');}sosLocate();openSheet('sos');break;
+    case 'nesearch':neSearch();break;
+    case 'nepick':{const g=(S.hostDraft.neRes||[])[Number(el.dataset.i)];if(g){S.hostDraft.neLL=g.ll;S.hostDraft.neVenue=g.name;S.hostDraft.neRes=[];S.hostDraft.neName=($('#ne-name')||{}).value||'';S.hostDraft.neWhen=($('#ne-when')||{}).value||'';renderView();}break;}
+    case 'nesave':neSave();break;
+    case 'necancel':S.hostDraft.addEv=false;renderView();break;
     case 'dropsearch':dropSearch();break;
     case 'droppick':{const g=(S.dropRes||[])[Number(el.dataset.i)];if(g){S.dropLL=g.ll;S.dropName=g.name;S.dropRes=[];S.dropQ='';dropSave();toast('Drop-off saved');renderView();}break;}
     case 'dropclear':S.dropLL=null;S.dropName='';dropSave();renderView();break;
@@ -1544,9 +1596,16 @@ document.addEventListener('input',e=>{
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){pickVlog(el.files&&el.files[0]);}
   else if(f==='v')S.hostDraft.v=Number(el.value);
+  else if(f==='country'){S.hostDraft.country=el.value;S.tm=[];loadTm();renderView();}
+  else if(f==='event'){
+    const v=el.value;
+    if(v==='__new'){S.hostDraft.addEv=true;renderView();return;}
+    if(v.startsWith('tm_')){const r=(S.tm||[]).find(x=>x.id===v);if(r)evAdd(r);}
+    S.hostDraft.event=v;renderView();}
   else S.hostDraft[f]=el.value;
 });
 function planToHost(p,photo){
+  if(!EVENTS[p.event])EVENTS[p.event]={id:p.event,name:'Event',venue:'Event venue',pos:HOME,ends:'',real:true,ghost:true};
   const hn=p.host.first_name,mine=!!(S.auth.user&&p.host_id===S.auth.user.id);
   const friends=(p.crew||[]).map(f=>[f.n||'Friend','Friend',f.g||'Man',Number(f.a)||27,null]);
   const vn=VENUES[p.next_venue]||VENUES[0];
@@ -1561,6 +1620,7 @@ async function loadLive(){
   liveBusy=true;
   let reqChanged=false;
   try{
+    await loadEvents();
     const q=cols=>SB.from('plans').select('*, host:profiles!plans_host_id_fkey('+cols+')').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
     let r=await q('first_name,age,gender,photo_path,instagram');
     if(r.error&&/instagram/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path');
@@ -1626,6 +1686,7 @@ async function publishReal(){
       crew:d.friends.map(f=>({n:(f.n||'Friend').trim().slice(0,40),g:f.g,a:Number(f.a)||27})),active:true};
     if(d.pickLL){row.pickup_lat=d.pickLL[0];row.pickup_lng=d.pickLL[1];}
     if(d.stopLL){row.stop_name=(d.stopName||'Next stop').slice(0,80);row.stop_lat=d.stopLL[0];row.stop_lng=d.stopLL[1];}
+    if(EVENTS[d.event]&&EVENTS[d.event].row)await evSaveRow(EVENTS[d.event].row);
     let vlogPath=null;
     if(d.vlogFile){
       toast('Uploading your vlog…');
