@@ -129,6 +129,17 @@ p{margin:0}
 .story{position:absolute;inset:0;background:#000;z-index:60;display:flex;flex-direction:column;color:#fff}
 .story video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .story .shd{flex:none;padding:10px 12px 8px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(#000,#000)}
+.sbars{display:flex;gap:4px}.sbars .sbar{flex:1}
+.story .svid img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.story .scap{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:28px 14px 14px;color:#fff;font-size:14px;background:linear-gradient(transparent,rgba(0,0,0,.65));pointer-events:none}
+.linkish{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
+.hpcar{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px;background:var(--surface-2);display:block}
+.hpposts{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}
+.hpp{flex:none;width:96px;aspect-ratio:9/14;border-radius:12px;overflow:hidden;position:relative;border:2px solid var(--accent);padding:0;background:#000;scroll-snap-align:start}
+.hpp img,.hpp video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.hpp span{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;font-size:11px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+.mypost{display:flex;align-items:center;gap:10px;padding:6px 0}
+.mypost .hpp{width:52px;border-width:1px}
 .story .sbar{height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
 .story .sbar i{display:block;height:100%;width:0;background:#fff}
 .story .shead{display:flex;align-items:center;gap:10px}
@@ -201,7 +212,12 @@ p{margin:0}
 @media(prefers-reduced-motion:reduce){.btn,.chip,.x,.play,.dtile,.sbub .ring{transition:none}.btn:active,.chip:active,.dtile:hover,.dtile:active{transform:none}}
 .mono{font-family:var(--f-mono);font-weight:700}
 .plate{display:inline-block;padding:5px 11px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-weight:700;font-size:15px;letter-spacing:.06em}
-.lmap.dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.8)}
+.lmap .leaflet-tile-pane{filter:grayscale(1) brightness(1.14) contrast(.82)}
+.lmap.dark-tiles .leaflet-tile-pane{filter:grayscale(1) invert(1) brightness(.88) contrast(.9)}
+.lmap{border-radius:16px;overflow:hidden}
+.lmap .leaflet-control-zoom{border:0;box-shadow:0 2px 10px rgba(0,0,0,.25);border-radius:12px;overflow:hidden}
+.lmap .leaflet-control-zoom a{width:38px;height:38px;line-height:38px;color:#111;border-bottom:1px solid #e5e5e5}
+.lmap .leaflet-control-attribution{font-size:9px;opacity:.7;background:rgba(255,255,255,.6)}
 .lmap{height:260px;width:100%;background:var(--m-land);z-index:0}
 .split .lmap{height:360px}
 @media(min-width:900px){.split .lmap{height:520px}.lmap{height:300px}}
@@ -632,7 +648,7 @@ function hydrateMaps(){
     if(dark)el.classList.add('dark-tiles');
     const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#9A5F08').trim();
     const all=[];
-    if(o.route&&o.route.length>1){const ll=o.route.map(toLL);const c=L.layerGroup().addTo(map);L.polyline(ll,{color:acc,weight:9,opacity:.28,lineCap:'round'}).addTo(c);const line=L.polyline(ll,{color:acc,weight:4,lineCap:'round',lineJoin:'round'}).addTo(c);el._line=line;el._lineBg=c;all.push(...ll);}
+    if(o.route&&o.route.length>1){const ll=o.route.map(toLL);const c=L.layerGroup().addTo(map);L.polyline(ll,{color:dark?'#000':'#fff',weight:9,opacity:.85,lineCap:'round',lineJoin:'round'}).addTo(c);const line=L.polyline(ll,{color:dark?'#fff':'#111',weight:4,lineCap:'round',lineJoin:'round'}).addTo(c);el._line=line;el._lineBg=c;all.push(...ll);}
     (o.markers||[]).forEach(m=>{
       const ll=m.ll||toLL(m.pos);all.push(ll);
       if(m.kind==='fuzz'){L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map).bindTooltip(m.label||'Area only');return;}
@@ -740,7 +756,10 @@ const meAv=z=>S.me.photo?`<span class="av" style="width:${z}px;height:${z}px;bac
 const allHosts=()=>[...S.live,...hosts];
 const hostById=id=>allHosts().find(h=>h.id===id);
 const crewAv=(c,z,ok)=>c[4]?`<span class="av" style="width:${z}px;height:${z}px;background:var(--surface-2)"><img class="p" src="${esc(c[4])}" alt=""></span>`:av(c[0],z,ok);
-const hasVlog=h=>!!(h.vlogLocal||(h.real&&h.vlogPath));
+const postsOf=h=>(h.posts&&h.posts.length)?h.posts:(h.vlogLocal?[{kind:'video',url:h.vlogLocal}]:[]);
+const hasVlog=h=>postsOf(h).length>0;
+const leftTxt=iso=>{const m=Math.max(0,Math.round((new Date(iso)-Date.now())/60000));return m>=60?Math.floor(m/60)+'h left':m+'m left';};
+const thumbMedia=h=>h.vlogThumb?(h.thumbKind==='image'?`<img class="tvid" src="${esc(h.vlogThumb)}" alt="" loading="lazy">`:`<video class="tvid" muted playsinline preload="metadata" src="${esc(h.vlogThumb)}#t=0.5" aria-hidden="true"></video>`):'';
 const playBtn=(h,label)=>h.real||h.vlogLocal?(hasVlog(h)?`<button class="play" data-act="vlog" data-id="${h.id}" aria-label="Watch ${esc(h.name)}'s vlog">${ic('play',14)}${label||'Watch vlog'}</button>`:''):`<button class="play" data-act="vlog" data-id="${h.id}" aria-label="See a sample vlog preview">${ic('play',14)}Sample vlog</button>`;
 const hostBadge=h=>h.real?'<span class="vbadge pending">Photo added · ID check soon</span>':vb(h.verified);
 const crewBadge=(h,c)=>h.real?(c[1]==='Driver'?'<span class="vbadge pending">Photo added</span>':'<span class="vbadge pending">Not verified yet</span>'):vb(true);
@@ -783,14 +802,14 @@ function cardHTML(h){
   const toNext=st[1].at-st[0].at,toHome=st[2].at-st[1].at;
   return `<article class="card" id="card-${h.id}">
   <div class="thumb${h.vlogThumb?' hasv':''}" style="--h:${hue(h.name)}">
-    ${h.vlogThumb?`<video class="tvid" muted playsinline preload="metadata" src="${esc(h.vlogThumb)}#t=0.5" aria-hidden="true"></video>`:''}
+    ${thumbMedia(h)}
     <svg class="car" viewBox="0 0 124 64" aria-hidden="true"><ellipse cx="62" cy="58" rx="54" ry="5" fill="rgba(0,0,0,.35)"/><path d="M10 46C10 40 14 36 20 35L34 24C37 21 41 20 45 20H80C85 20 89 22 92 25L102 35C110 36 114 40 114 46V52H10Z" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/><circle cx="32" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="92" cy="52" r="8" fill="#0b0f0e" stroke="rgba(255,255,255,.4)"/><circle cx="108" cy="42" r="3.2" fill="#FFD27A"/><circle cx="16" cy="42" r="2.6" fill="#ff6a5c"/></svg>
     <div class="tl"><span class="tag">${ic('clock',12)}Leaving ${esc(h.leaving)}</span>${h.real?'<span class="tag" style="background:var(--good);color:var(--bg)">Live</span>':'<span class="tag">Sample</span>'}${fitTag(h)}</div>
     <div class="tr"><span class="tag crew">${ic('users',14)}${h.crew.length===1?'Solo':'Group of '+h.crew.length}</span></div>
     ${playBtn(h)}
   </div>
   <div class="card-body">
-    <div class="row"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="name">${esc(h.name)}</span>${hostBadge(h)}</div>
+    <div class="row"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h.real?`<button class="name linkish" data-act="hostpage" data-id="${h.id}">${esc(h.name)}</button>`:`<span class="name">${esc(h.name)}</span>`}${hostBadge(h)}</div>
     <span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'}<span class="muted" style="font-weight:400">${h.trips?'('+h.trips+')':''}</span></span></div>
     <div class="muted">${esc(h.color)} ${esc(h.car)} · parked ${h.parkM} m from ${esc(ev.venue)}</div>
     <div class="crewline"><div class="avs">${h.crew.slice(0,5).map(c=>crewAv(c,28)).join('')}</div><span><b>${crewLabel(h)}</b><span class="muted"> · ${crewMix(h)}</span></span></div>
@@ -805,7 +824,7 @@ function tileHTML(h){
   const act=(h.real&&!hasVlog(h))?'open':'vlog';
   const n=h.crew.length;
   return `<button class="dtile${h.vlogThumb?' hasv':''}" style="--h:${hue(h.name)}" data-act="${act}" data-id="${h.id}" aria-label="${act==='vlog'?'Watch':'Open'} ${esc(h.name)}'s plan">
-  ${h.vlogThumb?`<video class="tvid" muted playsinline preload="metadata" src="${esc(h.vlogThumb)}#t=0.5" aria-hidden="true"></video>`:''}
+  ${thumbMedia(h)}
   <div class="dtop">${h.real?'<span class="tag" style="background:var(--good);color:var(--bg)">Live</span>':'<span class="tag">Sample</span>'}<span class="tag crew">${ic('users',12)}${n===1?'Solo':n}</span></div>
   <span class="dface">${face}</span>
   <div class="dn">${esc(h.name)}</div>
@@ -963,8 +982,8 @@ function requestsHTML(){
 }
 function viewHost(){
   const d=S.hostDraft,venue=VENUES[d.v];
-  if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${livePanel()}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
-  return `<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
+  if(S.posted){const h=S.posted;return `${myPageHTML()}<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${livePanel()}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="editplan">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
+  return `${myPageHTML()}<div class="hero"><span class="eyebrow">Host tonight</span><h1>Post your plan</h1><p class="muted">Riders see who you are, who is in the car and where the night goes. They choose you, then you choose who rides. Nobody gets in without a photo match.</p></div>
   ${SB&&!S.auth.profile?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in and create your profile to post a live plan.</span><button class="btn sm" data-act="tab" data-v="safety">Go</button></div>`:''}
   ${(()=>{if(S.tmFor!==d.country&&!S.tmBusy){S.tmFor=d.country;setTimeout(loadTm,0);}return '';})()}
   <section class="panel"><h3>The event</h3>
@@ -1010,13 +1029,9 @@ function viewHost(){
     <p class="note">${esc(venue.note)}</p>
     <div class="toggle"><div><b>Offer my place as an optional last stop</b><div class="note">Riders only see the area. The address unlocks after she confirms.</div></div><button class="sw" role="switch" aria-checked="${d.house}" data-act="hhouse"></button></div>
     <div><div class="eyebrow" style="margin-bottom:8px">Vibe. Riders who match show up first.</div><div class="chips">${VIBES.map(v=>`<button class="chip" data-act="hvibe" data-v="${v}" aria-pressed="${d.vibe.includes(v)}">${v}</button>`).join('')}</div></div></section>
-  <section class="panel"><h3>Your lifestyle vlog</h3>
-    <label class="fld" for="f-vlog"><span>Upload a short clip (up to 60 seconds and 45 MB)</span><input class="inp" id="f-vlog" type="file" accept="video/*" data-f="vlogFile"></label>
-    ${d.vlogPreview?`<video class="vplayer" style="max-height:260px" controls playsinline preload="auto" src="${esc(d.vlogPreview)}#t=0.1"></video><p class="note">Selected: ${esc(d.vlogName)}</p>`:'<p class="note">Riders watch this before they choose. MP4 works best. Record at a lower quality if the file is too big.</p>'}
-    ${d.vlogWarn?`<p class="note">${esc(d.vlogWarn)}</p>`:''}
-    ${d.vlogErr?`<p class="note" style="color:var(--bad)">${esc(d.vlogErr)}</p>`:''}</section>
+  ${SB&&S.auth.user&&S.auth.profile?'<p class="note">Your car photo, story and Instagram live on your page above. Riders see them when they open your plan.</p>':''}
   <label class="toggle" style="gap:12px;align-items:flex-start" for="f-ver"><span><b>Everyone in my car has passed the selfie and ID check</b><span class="note" style="display:block">Listings with unverified people are removed.</span></span><input id="f-ver" type="checkbox" data-f="verified" ${d.verified?'checked':''} style="width:22px;height:22px;accent-color:var(--accent);flex:none"></label>
-  <button class="btn" data-act="publish" ${S.publishing?'disabled':''}>${S.publishing?'Posting… a vlog can take a minute':'Publish to tonight\'s feed'}</button>
+  <button class="btn" data-act="publish" ${S.publishing?'disabled':''}>${S.publishing?'Posting…':'Publish to tonight\'s feed'}</button>
   ${requestsHTML()}`;
 }
 function personTile(n,g,a,label,me){return `<div class="pp">${me?meAv(56):av(n,56,true)}<b>${esc(n)}</b><span class="note">${g}, ${a}${label?'<br>'+label:''}</span></div>`;}
@@ -1248,6 +1263,101 @@ const A_ok=()=>!!(S.auth.user&&S.auth.profile&&!S.socialOff);
 const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
 const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ghost act" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',18)}<span>Instagram</span></button>`:'';
 const actRow=(...b)=>{const x=b.filter(Boolean).join('');return x?`<div class="actions">${x}</div>`:'';};
+function sheetHost(){
+  const h=hostById(S.hp);if(!h)return '<p class="muted">Page not found.</p><button class="btn" data-act="close">Close</button>';
+  const first=h.name.split(' ')[0],photo=h.crew&&h.crew[0]&&h.crew[0][4],P=postsOf(h);
+  const on=isFol(h),canF=h.real&&!h.mine&&SB&&S.auth.user&&!S.socialOff;
+  return `<div class="sheet-h"><div style="display:flex;align-items:center;gap:12px"><span class="av" style="width:52px;height:52px">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div><span class="eyebrow">Host</span><h2>${esc(h.name)}</h2></div></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <div class="row" style="justify-content:flex-start;gap:8px;flex-wrap:wrap">${hostBadge(h)}<span class="tag">${esc(h.color)} ${esc(h.car)}</span></div>
+  ${h.carUrl?`<img class="hpcar" src="${esc(h.carUrl)}" alt="${esc(first)}'s ${esc(h.color)} ${esc(h.car)}">`:`<div class="hpcar" style="display:grid;place-items:center"><span class="note">${esc(first)} has not added a car photo yet</span></div>`}
+  <section class="panel"><div class="row"><h3>Right now</h3><span class="note">Gone after 24 hours</span></div>
+    ${P.length?`<div class="hpposts">${P.map((p,i)=>`<button class="hpp" data-act="vlog" data-id="${h.id}" data-i="${i}" aria-label="Watch ${esc(first)}'s story ${i+1}">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" loading="lazy">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}${p.expires?`<span>${leftTxt(p.expires)}</span>`:''}</button>`).join('')}</div>`:`<p class="note">${esc(first)} has not posted anything in the last 24 hours.</p>`}</section>
+  ${igOk(h.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(h.ig)}</span></div>
+    <iframe class="igframe" title="Instagram profile of ${esc(h.name)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(h.ig)}/embed"></iframe>
+    <p class="note">${esc(first)}'s own public Instagram. Private accounts do not show.</p></section>`:''}
+  <div class="actions">${canF?`<button class="btn ghost act" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${ic(on?'check':'userplus',18)}<span>${on?'Following':'Follow'}</span></button>`:''}<button class="btn act" data-act="open" data-id="${h.id}">See the plan</button></div>`;
+}
+async function shrinkImage(file,max){
+  try{
+    const url=URL.createObjectURL(file),img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+    const k=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
+    const b=await new Promise(res=>c.toBlob(res,'image/jpeg',0.82));return b||file;
+  }catch(e){return file;}
+}
+async function signVlogs(paths){
+  const out={};if(!paths.length||!SB)return out;
+  try{const u=await SB.storage.from('vlogs').createSignedUrls([...new Set(paths)],3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)out[x.path]=x.signedUrl;});}catch(e){}
+  return out;
+}
+async function loadMyPosts(){
+  const A=S.auth;if(!SB||!A.user||!A.profile)return;
+  try{
+    const now=new Date().toISOString();
+    const old=await SB.from('posts').select('id,path').eq('host_id',A.user.id).lte('expires_at',now);
+    if(old&&!old.error&&old.data&&old.data.length){SB.storage.from('vlogs').remove(old.data.map(x=>x.path)).catch(()=>{});await SB.from('posts').delete().in('id',old.data.map(x=>x.id));}
+    const r=await SB.from('posts').select('*').eq('host_id',A.user.id).gt('expires_at',now).order('created_at',{ascending:true});
+    if(r.error){S.postsOff=true;return;}
+    S.postsOff=false;
+    const u=await signVlogs([...(r.data||[]).map(x=>x.path),A.profile.car_photo_path].filter(Boolean));
+    S.myPosts=(r.data||[]).map(x=>({id:x.id,path:x.path,kind:x.kind,url:u[x.path]||'',caption:x.caption||'',expires:x.expires_at}));
+    S.carUrl=A.profile.car_photo_path?(u[A.profile.car_photo_path]||''):'';
+  }catch(e){S.postsOff=true;}
+  if(S.role==='host'&&!S.sheet)renderView();
+}
+async function addPost(file){
+  const A=S.auth;if(!SB||!A.user||!file)return;
+  const isV=/^video\//.test(file.type||''),isI=/^image\//.test(file.type||'');
+  if(!isV&&!isI){toast('Pick a photo or a video');return;}
+  if((S.myPosts||[]).length>=8){toast('You can have up to 8 posts at a time. Delete one first.');return;}
+  S.postBusy=true;renderView();
+  try{
+    let body=file,ct=file.type;
+    if(isI){body=await shrinkImage(file,1600);ct='image/jpeg';}
+    else{if(file.size>45*1024*1024)throw new Error('That video is over 45 MB. Record a shorter clip.');const m=await readVideoMeta(file);if(m.ok&&m.duration>62)throw new Error('Keep videos under 60 seconds.');}
+    const path=A.user.id+'/p_'+Date.now();
+    const up=await SB.storage.from('vlogs').upload(path,body,{contentType:ct||'video/mp4'});
+    if(up.error)throw new Error(/mime|type/i.test(up.error.message||'')?'Photos need the step 15 database update.':(up.error.message||'Upload failed'));
+    const ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video'});
+    if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Posting needs the step 15 database update.');}
+    toast('Added to your story. It disappears in 24 hours.');
+    await loadMyPosts();loadLive();
+  }catch(e){toast((e&&e.message)||'Could not post that');}
+  S.postBusy=false;renderView();
+}
+async function delPost(id){
+  const p=(S.myPosts||[]).find(x=>x.id===id);if(!p||!SB)return;
+  await SB.from('posts').delete().eq('id',id);SB.storage.from('vlogs').remove([p.path]).catch(()=>{});
+  S.myPosts=S.myPosts.filter(x=>x.id!==id);renderView();loadLive();
+}
+async function setCarPhoto(file){
+  const A=S.auth;if(!SB||!A.user||!A.profile||!file)return;
+  if(!/^image\//.test(file.type||'')){toast('Pick a photo');return;}
+  S.postBusy=true;renderView();
+  try{
+    const body=await shrinkImage(file,1600),path=A.user.id+'/car_'+Date.now();
+    const up=await SB.storage.from('vlogs').upload(path,body,{contentType:'image/jpeg'});
+    if(up.error)throw new Error(/mime|type/i.test(up.error.message||'')?'Photos need the step 15 database update.':(up.error.message||'Upload failed'));
+    const u=await SB.from('profiles').update({car_photo_path:path}).eq('id',A.user.id);
+    if(u.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Saving the car photo needs the step 15 database update.');}
+    const prev=A.profile.car_photo_path;if(prev)SB.storage.from('vlogs').remove([prev]).catch(()=>{});
+    A.profile.car_photo_path=path;toast('Car photo saved');
+    await loadMyPosts();loadLive();
+  }catch(e){toast((e&&e.message)||'Could not save the photo');}
+  S.postBusy=false;renderView();
+}
+function myPageHTML(){
+  const A=S.auth;if(!SB||!A.user||!A.profile)return '';
+  if(!S.myPostsLoaded){S.myPostsLoaded=true;setTimeout(loadMyPosts,0);}
+  const P=S.myPosts||[];
+  return `<section class="panel"><h3>Your page</h3>
+    <p class="note">Riders open your page from your plan. It shows your car, what your day or night looks like right now, and your Instagram. Story posts disappear after 24 hours.</p>
+    ${S.carUrl?`<img class="hpcar" src="${esc(S.carUrl)}" alt="Your car">`:''}
+    <div class="actions"><label class="btn ghost act" style="cursor:pointer">${ic('image',18)}<span>${S.carUrl?'Change car photo':'Add a car photo'}</span><input type="file" accept="image/*" data-f="carFile" hidden></label>
+    <label class="btn act" style="cursor:pointer" ${S.postBusy?'aria-disabled="true"':''}>${ic('plus',18)}<span>${S.postBusy?'Uploading…':'Add to your story'}</span><input type="file" accept="image/*,video/*" data-f="postFile" hidden></label></div>
+    ${P.map(p=>`<div class="mypost"><div class="hpp">${p.kind==='image'?`<img src="${esc(p.url)}" alt="">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}</div><div style="flex:1;min-width:0"><b>${p.kind==='image'?'Photo':'Video'}</b><div class="note">${leftTxt(p.expires)}</div></div><button class="chip" data-act="postdel" data-id="${p.id}">Delete</button></div>`).join('')}
+    ${S.postsOff?'<p class="note" style="color:var(--bad)">Posts need the step 15 database update.</p>':''}</section>`;
+}
 function sheetIg(){
   const v=S.igView||{},handle=v.handle,name=v.name||'';
   if(!igOk(handle))return `<p class="muted">No Instagram added.</p><button class="btn" data-act="close">Close</button>`;
@@ -1292,7 +1402,8 @@ function sheetDetail(){
       <div class="crewline">${av(F.name||'Friend',44,F.verified)}<div style="flex:1;min-width:0"><b>${esc(F.name||'Your friend')}</b><div class="note">${F.gender}, ${esc(F.age)} · ${F.verified?'Face matched':F.sent?'Checking her selfie…':'Not verified yet'}</div></div>
       ${F.verified?vb(true):`<button class="btn sm" data-act="dfsend" ${F.sent?'disabled':''}>${F.sent?'Link sent':'Send verify link'}</button>`}</div></div>`:''}`;
   return `<div class="sheet-h"><div><span class="eyebrow">${esc(ev.name)} · leaving ${esc(h.leaving)}</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px"><h2>${esc(h.name)}</h2>${hostBadge(h)}</div></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
-  <div class="thumb" style="--h:${hue(h.name)};border-radius:14px;aspect-ratio:16/6.5"><div class="tl"><span class="tag">${ic('users',12)}${crewLabel(h)}</span></div>${playBtn(h)}</div>
+  <div class="thumb${h.carUrl?' hasv':''}" style="--h:${hue(h.name)};border-radius:14px;aspect-ratio:16/6.5">${h.carUrl?`<img class="tvid" src="${esc(h.carUrl)}" alt="">`:''}<div class="tl"><span class="tag">${ic('users',12)}${crewLabel(h)}</span></div>${playBtn(h)}</div>
+  ${h.real?`<button class="btn ghost" data-act="hostpage" data-id="${h.id}">See ${esc(first)}'s page: car, story and Instagram</button>`:''}
   ${fx.length?`<div class="rule">${ic('check',18)}<span>Fits your vibe: ${esc(fx.join(', '))}</span></div>`:''}
   <section class="panel"><div class="row">${plateHTML(h)}<span>${esc(h.color)} ${esc(h.car)}</span></div>
     <div class="row"><span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'} <span class="muted" style="font-weight:400">${h.trips} rides</span></span><span class="note">Parked ${h.parkM} m from the gate</span></div></section>
@@ -1318,17 +1429,28 @@ function sheetDetail(){
     :`<button class="btn" data-act="request" ${block||(h.mine)?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>`}
   <p class="note">${h.real?'He sees your photo, first name, age and vibe. Nothing else.':'Nothing starts until you confirm and both sides pass the pickup photo check.'}</p>`;
 }
+function storyNext(){
+  const h=hostById(S.vlog.id);if(!h||S.sheet!=='vlog')return;
+  const P=postsOf(h);
+  if(S.vlog.i<P.length-1){S.vlog.i++;renderSheet();return;}
+  const L=storyList().filter(x=>postsOf(x).length),k=L.findIndex(x=>x.id===h.id),nx=L[k+1];
+  if(nx){seenSet(nx.id);S.vlog={id:nx.id,i:0,url:nx.vlogLocal||'',loading:false,err:''};renderSheet();}
+  else{S.draft=newDraft(h.id);openSheet('detail');}
+}
 function sheetVlog(){
   const h=hostById(S.vlog.id),V=S.vlog,i=V.i;
   const head=lab=>`<div class="sheet-h"><div><span class="eyebrow">${lab}</span><h2>${esc(h.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>`;
   if(h.real||h.vlogLocal){
     const photo=h.crew&&h.crew[0]&&h.crew[0][4];
-    const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}</span></div>`;
-    const inner=V.loading?'<div class="msg"><p>Loading…</p></div>':V.err?`<div class="msg"><p>${esc(V.err)}</p></div>`:V.url?`<video id="storyVid" playsinline autoplay src="${esc(V.url)}"></video>`:`<div class="msg"><p>${esc(h.name)} has not added a vlog yet.</p></div>`;
+    const cp=postsOf(h)[Math.min(i,postsOf(h).length-1)];
+    const who=`<span class="av" style="width:34px;height:34px;border-color:#fff;background:#222">${photo?`<img class="p" src="${esc(photo)}" alt="">`:''}</span><div style="display:flex;flex-direction:column"><b>${esc(h.name)}</b><span class="scar">${esc(h.color||'')} ${esc(h.car||'')}${cp&&cp.expires?' · '+leftTxt(cp.expires):''}</span></div>`;
+    const P=postsOf(h),cur=P[Math.min(i,P.length-1)];
+    const inner=cur?(cur.kind==='image'?`<img id="storyImg" src="${esc(cur.url)}" alt="">`:`<video id="storyVid" playsinline autoplay src="${esc(cur.url)}"></video>`)+(cur.caption?`<div class="scap">${esc(cur.caption)}</div>`:''):`<div class="msg"><p>${esc(h.name)} has nothing in his story right now.</p></div>`;
     const on=isFol(h),canF=h.real&&!h.mine&&SB&&S.auth.user&&!S.socialOff;
     const foot=`${canF?`<button class="btn ghost ico${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}" aria-label="${on?'Following':'Follow'} ${esc(h.name)}">${ic(on?'check':'userplus',20)}</button>`:''}${(h.real&&igOk(h.ig))?`<button class="btn ghost ico" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',20)}</button>`:''}<button class="btn" style="flex:1" data-act="open" data-id="${h.id}">See the plan</button>`;
-    return `<div class="story"><div class="shd"><div class="sbar"><i id="storyBar"></i></div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div></div>
-    <div class="svid">${inner}<button class="tapl" data-act="vrestart" aria-label="Replay"></button><button class="tapr" data-act="vopen" data-id="${h.id}" aria-label="See the plan"></button></div>
+    const P2=postsOf(h);
+    return `<div class="story"><div class="shd"><div class="sbars">${P2.map((_,j)=>`<div class="sbar"><i ${j<i?'style="width:100%"':''} ${j===i?'id="storyBar"':''}></i></div>`).join('')}</div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div></div>
+    <div class="svid">${inner}<button class="tapl" data-act="vprev" aria-label="Previous"></button><button class="tapr" data-act="vnext" aria-label="Next"></button></div>
     <div class="sfoot">${foot}</div></div>`;
   }
   if(false){
@@ -1388,16 +1510,18 @@ function sheetDone(){
 function renderSheet(){
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
-  const T={chat:sheetChat,ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  const T={host:sheetHost,chat:sheetChat,ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
   if(S.sheet==='vlog'&&(()=>{const h=hostById(S.vlog.id);return h&&(h.real||h.vlogLocal);})()){
     root.innerHTML=`<div class="scrim" style="padding:0;align-items:stretch" data-act="noop">${T.vlog()}</div>`;S._sheetKept=S.sheet;
-    const v=document.getElementById('storyVid'),bar=document.getElementById('storyBar');
+    clearTimeout(S.storyT);
+    const v=document.getElementById('storyVid'),im=document.getElementById('storyImg'),bar=document.getElementById('storyBar');
     if(v){
-      v.addEventListener('timeupdate',()=>{if(v.duration)bar.style.width=(v.currentTime/v.duration*100)+'%';});
-      v.addEventListener('ended',()=>{const L=storyList().filter(x=>x.real||x.vlogLocal),k=L.findIndex(x=>x.id===S.vlog.id),nx=L[k+1];
-        if(nx){const btn=document.createElement('button');btn.dataset.act='vlog';btn.dataset.id=nx.id;document.body.appendChild(btn);btn.click();btn.remove();}
-        else{const h=hostById(S.vlog.id);if(h){S.draft=newDraft(h.id);openSheet('detail');}}});
+      v.addEventListener('timeupdate',()=>{if(v.duration&&bar)bar.style.width=(v.currentTime/v.duration*100)+'%';});
+      v.addEventListener('ended',storyNext);
       const p=v.play();if(p&&p.catch)p.catch(()=>{v.muted=true;v.play().catch(()=>{});});
+    }else if(im&&bar){
+      bar.style.transition='width 5s linear';requestAnimationFrame(()=>requestAnimationFrame(()=>{bar.style.width='100%';}));
+      S.storyT=setTimeout(storyNext,5000);
     }
     return;
   }
@@ -1406,7 +1530,7 @@ function renderSheet(){
   hydrateMaps();
 }
 function openSheet(n){S.sheet=n;renderSheet();}
-function closeSheet(){const was=S.sheet;if(was==='detail'){stopLivePoll();LIVE=null;}if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
+function closeSheet(){const was=S.sheet;clearTimeout(S.storyT);if(was==='detail'){stopLivePoll();LIVE=null;}if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
 function renderView(){
   const v=$('#view');const key=S.role+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
   const html=S.role==='host'?viewHost():({tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety}[S.tab])();
@@ -1479,25 +1603,16 @@ function act(a,el,ev){
     case 'evt':S.event=v;renderView();break;
     case 'grp':S.group=Number(v);renderView();break;
     case 'open':S.draft=newDraft(id);openSheet('detail');break;
-    case 'vlog':{const h=hostById(id);seenSet(id);S.vlog={id,i:0,url:h.vlogLocal||'',loading:false,err:''};
-      if(h.real&&h.vlogPath&&SB){S.vlog.loading=true;}
-      openSheet('vlog');
-      if(S.vlog.loading){
-        SB.storage.from('vlogs').createSignedUrl(h.vlogPath,3600).then(r=>{
-          if(S.vlog.id!==id)return;
-          S.vlog.loading=false;
-          if(!r||r.error||!r.data)S.vlog.err='Could not load the vlog. Try again in a moment.';else S.vlog.url=r.data.signedUrl;
-          if(S.sheet==='vlog')renderSheet();
-        }).catch(()=>{S.vlog.loading=false;S.vlog.err='Could not load the vlog.';if(S.sheet==='vlog')renderSheet();});
-      }
-      break;}
+    case 'vlog':{const h=hostById(id);if(!h)break;seenSet(id);S.vlog={id,i:Math.max(0,Number(el.dataset.i)||0),url:h.vlogLocal||'',loading:false,err:''};openSheet('vlog');break;}
+    case 'postdel':delPost(id);break;
+    case 'hostpage':{if(hostById(id)){S.hp=id;openSheet('host');}break;}
     case 'ig':{const h=hostById(id);if(h){S.igView={handle:h.ig,name:h.name};openSheet('ig');}break;}
     case 'igr':{const r=S.hostReqs.find(x=>x.id===id);if(r){S.igView={handle:r.ig,name:r.name};openSheet('ig');}break;}
     case 'vrestart':{const v=document.getElementById('storyVid');if(v){v.currentTime=0;v.play().catch(()=>{});}break;}
     case 'vopen':{const h=hostById(id);if(h){S.draft=newDraft(h.id);openSheet('detail');}break;}
     case 'noop':break;
-    case 'vnext':{const h=hostById(S.vlog.id);if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
-    case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}break;
+    case 'vnext':{const h=hostById(S.vlog.id);if(h.real||h.vlogLocal){storyNext();break;}if(S.vlog.i<h.vlog.length-1){S.vlog.i++;renderSheet();}else{S.draft=newDraft(h.id);openSheet('detail');}break;}
+    case 'vprev':if(S.vlog.i>0){S.vlog.i--;renderSheet();}else if(S.sheet==='vlog'){renderSheet();}break;
     case 'close':closeSheet();break;
     case 'ausend':authSend();break;
     case 'aumode':S.auth.mode=v;S.auth.err='';S.auth.status='idle';renderView();break;
@@ -1623,6 +1738,8 @@ document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.datase
   const f=el.dataset.f;if(!f)return;
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){pickVlog(el.files&&el.files[0]);}
+  else if(f==='carFile'){const fl=el.files&&el.files[0];el.value='';setCarPhoto(fl);}
+  else if(f==='postFile'){const fl=el.files&&el.files[0];el.value='';addPost(fl);}
   else if(f==='v')S.hostDraft.v=Number(el.value);
   else if(f==='country'){S.hostDraft.country=el.value;S.tm=[];loadTm();renderView();}
   else if(f==='event'){
@@ -1650,7 +1767,8 @@ async function loadLive(){
   try{
     await loadEvents();
     const q=cols=>SB.from('plans').select('*, host:profiles!plans_host_id_fkey('+cols+')').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
-    let r=await q('first_name,age,gender,photo_path,instagram');
+    let r=await q('first_name,age,gender,photo_path,instagram,car_photo_path');
+    if(r.error&&/car_photo_path/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path,instagram');
     if(r.error&&/instagram/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path');
     if(r.error){S.liveErr=r.error.message||'error';S.live=[];}
     else{
@@ -1659,9 +1777,14 @@ async function loadLive(){
       const paths=[...new Set(rows.map(p=>p.host.photo_path).filter(Boolean))];
       const urls={};
       if(paths.length){const u=await SB.storage.from('avatars').createSignedUrls(paths,3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)urls[x.path]=x.signedUrl;});}
-      const vp=[...new Set(rows.map(p=>p.vlog_path).filter(Boolean))],vurls={};
-      if(vp.length){try{const u=await SB.storage.from('vlogs').createSignedUrls(vp,3600);((u&&u.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)vurls[x.path]=x.signedUrl;});}catch(e){}}
-      S.live=rows.map(p=>{const h=planToHost(p,urls[p.host.photo_path]);h.vlogThumb=p.vlog_path?(vurls[p.vlog_path]||null):null;return h;});
+      const hids=[...new Set(rows.map(p=>p.host_id))];let pr={};
+      try{const pq=await SB.from('posts').select('*').in('host_id',hids).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});if(pq&&!pq.error)(pq.data||[]).forEach(x=>{(pr[x.host_id]=pr[x.host_id]||[]).push(x);});}catch(e){}
+      const vurls=await signVlogs([...rows.map(p=>p.vlog_path),...rows.map(p=>p.host.car_photo_path),...Object.values(pr).flat().map(x=>x.path)].filter(Boolean));
+      S.live=rows.map(p=>{const h=planToHost(p,urls[p.host.photo_path]);
+        h.posts=(pr[p.host_id]||[]).filter(x=>vurls[x.path]).map(x=>({id:x.id,kind:x.kind,url:vurls[x.path],caption:x.caption||'',expires:x.expires_at}));
+        if(!h.posts.length&&p.vlog_path&&vurls[p.vlog_path])h.posts=[{id:'legacy',kind:'video',url:vurls[p.vlog_path],caption:'',expires:p.expires_at}];
+        h.carUrl=p.host.car_photo_path?(vurls[p.host.car_photo_path]||null):null;
+        const f=h.posts[0];h.vlogThumb=f?f.url:null;h.thumbKind=f?f.kind:'video';return h;});
       await loadSocial(rows);
       const mine=S.live.find(h=>h.mine);
       if(mine){
@@ -1716,14 +1839,7 @@ async function publishReal(){
     const okStops=d.stops.filter(x=>x.ll).slice(0,3);
     if(okStops.length){row.stop_name=(okStops[0].name||'Next stop').slice(0,80);row.stop_lat=okStops[0].ll[0];row.stop_lng=okStops[0].ll[1];row.stops=okStops.map(x=>({name:(x.name||'Stop').slice(0,80),ll:x.ll}));}
     if(EVENTS[d.event]&&EVENTS[d.event].row)await evSaveRow(EVENTS[d.event].row);
-    let vlogPath=null;
-    if(d.vlogFile){
-      toast('Uploading your vlog…');
-      const up=await SB.storage.from('vlogs').upload(A.user.id+'/vlog',d.vlogFile,{upsert:true,contentType:d.vlogFile.type||'video/mp4'});
-      if(up.error)throw new Error('Vlog upload failed: '+(up.error.message||'try a smaller file'));
-      vlogPath=A.user.id+'/vlog';
-    }else{SB.storage.from('vlogs').remove([A.user.id+'/vlog']).catch(()=>{});}
-    row.vlog_path=vlogPath;
+    row.vlog_path=null;
     const off=await SB.from('plans').update({active:false}).eq('host_id',A.user.id).eq('active',true);
     if(off.error)throw off.error;
     let ins=await SB.from('plans').insert(row).select('id').single();
