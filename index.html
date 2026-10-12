@@ -432,7 +432,7 @@ async function loadEvents(){
 }
 async function loadTm(){
   const c=S.hostDraft.country;S.tmFor=c;
-  try{const r=await fetch('/api/events?country='+c);const j=await r.json();if(S.hostDraft.country===c){S.tm=(j.events||[]).filter(x=>new Date(x.starts_at)>Date.now()-18*3600e3);renderView();}}catch(e){S.tm=[];}
+  try{const r=await fetch('/api/events?country='+c);const j=await r.json();if(S.hostDraft.country===c){S.tmNote=j.note||'';S.tmDone=c;S.tm=(j.events||[]).filter(x=>new Date(x.starts_at)>Date.now()-18*3600e3);renderView();}}catch(e){S.tm=[];S.tmNote='error';S.tmDone=c;}
 }
 async function evSaveRow(r){
   if(!SB||!S.auth.user)return true;
@@ -942,7 +942,8 @@ function viewHost(){
   ${(()=>{if(S.tmFor!==d.country&&!S.tmBusy){S.tmFor=d.country;setTimeout(loadTm,0);}return '';})()}
   <section class="panel"><h3>The event</h3>
     <div class="two"><label class="fld" for="f-country">Find events in<select class="inp" id="f-country" data-f="country">${EV_COUNTRIES.map(c=>`<option value="${c[0]}" ${d.country===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select></label>
-    <label class="fld" for="f-event">Which event are you parked at?<select class="inp" id="f-event" data-f="event">${(()=>{const L=Object.values(EVENTS).sort((a,b)=>(a.real?1:0)-(b.real?1:0)||0),tm=(S.tm||[]).filter(x=>!EVENTS[x.id]);return `<optgroup label="Events">${L.map(e=>`<option value="${e.id}" ${d.event===e.id?'selected':''}>${esc(e.name)} at ${esc(e.venue)}${e.real?' ('+esc(e.ends.replace('Starts ',''))+')':''}</option>`).join('')}</optgroup>${tm.length?`<optgroup label="Listed near you">${tm.map(x=>`<option value="${x.id}">${esc(x.name)} at ${esc(x.venue)} (${esc(evWhen(x.starts_at))})</option>`).join('')}</optgroup>`:''}<option value="__new">+ Add an event that is not listed</option>`;})()}</select></label></div>
+    <label class="fld" for="f-event">Which event are you parked at?<select class="inp" id="f-event" data-f="event">${(()=>{const L=Object.values(EVENTS).sort((a,b)=>(a.real?1:0)-(b.real?1:0)||0),tm=(S.tm||[]).filter(x=>!EVENTS[x.id]);return `<optgroup label="Events">${L.map(e=>`<option value="${e.id}" ${d.event===e.id?'selected':''}>${esc(e.name)} at ${esc(e.venue)}${e.real?' ('+esc(e.ends.replace('Starts ',''))+')':''}</option>`).join('')}</optgroup>${tm.length?`<optgroup label="Listed near you">${tm.map(x=>`<option value="${x.id}">${esc(x.name)} at ${esc(x.venue)} (${esc(evWhen(x.starts_at))})</option>`).join('')}</optgroup>`:''}<option value="__new">+ Add an event that is not listed</option>`;})()}</select></label>
+    ${S.tmDone===d.country&&!(S.tm||[]).length?`<p class="note" style="margin:-4px 0 8px">${S.tmNote==='no key'?'Event listings are not connected yet, so only sample events and events other hosts added show here.':'No listed events found for this country right now.'} Choose "+ Add an event that is not listed" at the bottom of the list to add yours.</p>`:''}</div>
     ${d.addEv?`<div class="panel" style="margin:6px 0"><h3>Add an event</h3>
       <label class="fld" for="ne-name">Event name<input class="inp" id="ne-name" maxlength="80" value="${esc(d.neName||'')}" placeholder="e.g. Afrobeats Friday"></label>
       <label class="fld" for="ne-when">Starts<input class="inp" id="ne-when" type="datetime-local" value="${esc(d.neWhen||'')}"></label>
