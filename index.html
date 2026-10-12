@@ -268,6 +268,19 @@ svg.map{display:block;width:100%;height:auto}
 label.fld{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink-2)}
 .inp{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%;min-width:0}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rt{position:relative;display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.rtrow{display:flex;align-items:flex-start;gap:8px;position:relative}
+.rtrow:not(:last-child)::before{content:"";position:absolute;left:10px;top:34px;bottom:-14px;width:2px;background:var(--line)}
+.rtd{flex:none;width:22px;height:22px;margin-top:12px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--f-body);font-style:normal;background:var(--ink);color:var(--surface)}
+.rtd.p{background:var(--accent)}.rtd.s{border-radius:6px}
+.rtin{flex:1;min-width:0}
+.rtx{flex:none;width:40px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center}
+.aclist{display:flex;flex-direction:column;border-radius:10px;overflow:hidden}
+.aclist:not(:empty){border:1px solid var(--line);margin-top:4px;background:var(--surface)}
+.acopt{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:10px 12px;background:var(--surface);border:0;border-bottom:1px solid var(--line);color:var(--ink);min-height:44px}
+.acopt:last-child{border-bottom:0}.acopt:hover,.acopt:focus-visible{background:var(--accent-soft)}
+.acopt span,.acnote{font-size:12.5px;color:var(--ink-2)}.acnote{padding:10px 12px}
+
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.58);display:flex;align-items:flex-end;justify-content:center;z-index:40}
 .sheet{width:100%;max-height:93%;background:var(--surface);border-radius:20px 20px 0 0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line)}
 .sheet-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -530,7 +543,7 @@ function mk(m,k){
 const LAT0=5.640,LNG0=-0.235,MPU=KM*1000;
 const toLL=p=>[LAT0-p[1]*MPU/111320,LNG0+p[0]*MPU/(111320*Math.cos(LAT0*Math.PI/180))];
 const fromLL=ll=>[(ll[1]-LNG0)*111320*Math.cos(LAT0*Math.PI/180)/MPU,(LAT0-ll[0])*111320/MPU];
-const nextName=h=>h.stopLL?(h.stopName||'Next stop'):VENUES[h.v].n;
+const nextName=h=>(h.stops&&h.stops.length)?(h.stops[0].name||'Next stop'):VENUES[h.v].n;
 const MAPS={};let mapSeq=0,LMAPS=[];let PICK=null,LIVE=null;const ROUTES={};
 function distToRouteM(p,line){
   if(!line||line.length<2)return null;
@@ -629,7 +642,7 @@ function hydrateMaps(){
       if(m.hit)mk.on('click',()=>{const b=document.createElement('button');b.dataset.act='open';b.dataset.id=m.hit;document.body.appendChild(b);b.click();b.remove();});
     });
     if(S.myLL){const ll=S.myLL;L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="lpin me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:'You are here'}).addTo(map).bindTooltip('You are here');all.push(ll);}
-    if(o.picker){if(S.hostDraft.pickLL)all.push(S.hostDraft.pickLL);if(S.hostDraft.stopLL)all.push(S.hostDraft.stopLL);}
+    if(o.picker){if(S.hostDraft.pickLL)all.push(S.hostDraft.pickLL);S.hostDraft.stops.forEach(x=>{if(x.ll)all.push(x.ll);});}
     if(all.length===1)map.setView(all[0],15);else if(all.length)map.fitBounds(L.latLngBounds(all).pad(0.18),{maxZoom:16});else map.setView(S.myLL||[LAT0-0.03,LNG0+0.02],13);
     if(o.picker){PICK={map,layer:L.layerGroup().addTo(map)};map.on('click',e=>pickAt([e.latlng.lat,e.latlng.lng]));redrawPick();}
     if(o.routeKey&&o.route&&o.route.length>1)ROUTES[o.routeKey]=o.route.map(toLL);
@@ -637,29 +650,44 @@ function hydrateMaps(){
     if(o.osrm)snapRoute(el,map,o.osrm,o.routeKey);
   });
 }
-function pickAt(ll,name){
+const AC={},ACT={},ACN={};
+function acCC(k){return k==='dr'?'gh':((S.hostDraft&&S.hostDraft.country)||'GH').toLowerCase();}
+function acHTML(k,list){return list.map((g,i)=>`<button type="button" class="acopt" data-act="acpick" data-k="${k}" data-i="${i}"><b>${esc(g.a)}</b><span>${esc(g.b)}</span></button>`).join('');}
+function acSearch(k,q){
+  const box=document.getElementById('ac-'+k);if(!box)return;
+  if(q.trim().length<3){box.innerHTML='';AC[k]=[];return;}
+  const n=(ACN[k]=(ACN[k]||0)+1);box.innerHTML='<div class="acnote">Searching…</div>';
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes='+acCC(k)+'&q='+encodeURIComponent(q.trim())).then(r=>r.json()).then(j=>{
+    if(n!==ACN[k])return;
+    AC[k]=(j||[]).map(x=>{const p=(x.display_name||'').split(',').map(t=>t.trim());return {a:p[0]||'Place',b:p.slice(1,3).join(', '),name:p.slice(0,2).join(', '),ll:[parseFloat(x.lat),parseFloat(x.lon)]};});
+    const b=document.getElementById('ac-'+k);if(b)b.innerHTML=AC[k].length?acHTML(k,AC[k]):'<div class="acnote">No places found. Try another name, or tap the map.</div>';
+  }).catch(()=>{const b=document.getElementById('ac-'+k);if(b)b.innerHTML='<div class="acnote">Search is unavailable. Tap the map instead.</div>';});
+}
+function acInput(el){const k=el.dataset.ac;clearTimeout(ACT[k]);ACT[k]=setTimeout(()=>acSearch(k,el.value),380);}
+function acPick(k,g){
   const d=S.hostDraft;
-  if(d.pickMode==='stop'){d.stopLL=ll;d.stopName=name||d.stopName||'Dropped pin';}else d.pickLL=ll;
+  if(k==='p'){d.pickLL=g.ll;d.pickName=g.name;}
+  else if(k[0]==='s'){const i=Number(k.slice(1));if(d.stops[i]){d.stops[i]={name:g.name,ll:g.ll};}}
+  else if(k==='ne'){d.neLL=g.ll;d.neVenue=g.name;d.neQ=g.name;d.neName=($('#ne-name')||{}).value||d.neName||'';d.neWhen=($('#ne-when')||{}).value||d.neWhen||'';}
+  else if(k==='dr'){S.dropLL=g.ll;S.dropName=g.name;S.dropRes=[];S.dropQ='';dropSave();toast('Drop-off saved');}
+  AC[k]=[];renderView();
+}
+function pickAt(ll,name){
+  const d=S.hostDraft,f=d.rowFocus||'p';
+  if(f==='p'){d.pickLL=ll;d.pickName=name||'Dropped pin';}
+  else{const i=Number(f.slice(1));if(d.stops[i])d.stops[i]={name:name||'Dropped pin',ll};else{d.stops.push({name:name||'Dropped pin',ll});}}
   redrawPick();
+  const inp=document.querySelector('[data-ac="'+f+'"]');if(inp&&!name)inp.value='Dropped pin';
+  if(!name){fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+ll[0]+'&lon='+ll[1]).then(r=>r.json()).then(j=>{const nm=(j&&j.display_name?j.display_name.split(',').slice(0,2).join(', ').trim():'');if(!nm)return;
+    if(f==='p'){if(d.pickLL===ll)d.pickName=nm;}else{const i=Number(f.slice(1));if(d.stops[i]&&d.stops[i].ll===ll)d.stops[i].name=nm;}
+    const x=document.querySelector('[data-ac="'+f+'"]');if(x&&x.value==='Dropped pin')x.value=nm;}).catch(()=>{});}
 }
 function redrawPick(){
   const d=S.hostDraft;if(!PICK||!document.body.contains(PICK.map.getContainer()))return;
   PICK.layer.clearLayers();
   const add=(ll,k,g,t)=>L.marker(ll,{icon:L.divIcon({className:'',html:`<div class="lpin ${k}">${g}</div>`,iconSize:[30,30],iconAnchor:[15,15]})}).addTo(PICK.layer).bindTooltip(t);
   if(d.pickLL)add(d.pickLL,'park','P','Pickup');
-  if(d.stopLL)add(d.stopLL,'stop','2',d.stopName||'Next stop');
-  const pi=document.getElementById('pickInfo');
-  if(pi)pi.innerHTML=(d.pickLL?'Pickup set. ':'No pickup yet. ')+(d.stopLL?'Next stop: <b>'+esc(d.stopName||'Dropped pin')+'</b>.':'No next stop yet.');
-}
-async function geoSearch(){
-  const d=S.hostDraft,q=(d.geoQ||'').trim();if(q.length<3){toast('Type at least 3 letters');return;}
-  d.geoBusy=true;renderView();
-  try{
-    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=gh&q='+encodeURIComponent(q));
-    const j=await r.json();d.geo=(j||[]).map(x=>({name:(x.display_name||'').split(',').slice(0,3).join(',').trim(),ll:[parseFloat(x.lat),parseFloat(x.lon)]}));
-    if(!d.geo.length)toast('No places found. Try another name or tap the map.');
-  }catch(e){d.geo=[];toast('Search is unavailable. Tap the map instead.');}
-  d.geoBusy=false;renderView();
+  d.stops.forEach((s,i)=>{if(s.ll)add(s.ll,'stop',String(i+1),s.name||'Stop');});
 }
 async function snapRoute(el,map,stops,key){
   try{
@@ -697,7 +725,7 @@ const S={
     {id:'q2',name:'Akosua B.',age:26,shows:94,rating:4.8,vibes:['Lounge','Dancing'],friend:null,status:'new'},
     {id:'q3',name:'Maame K.',age:25,shows:99,rating:5.0,vibes:['Dinner','Quiet'],friend:{name:'Jay',gender:'Man',age:27},status:'new'}
   ],
-  hostDraft:{event:'a',country:(((navigator.language||'').split('-')[1]||'GH').toUpperCase().match(/^(GH|NG|ZA|KE|GB|US)$/)||['GH'])[0],name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
+  hostDraft:{stops:[],pickName:'',rowFocus:'p',event:'a',country:(((navigator.language||'').split('-')[1]||'GH').toUpperCase().match(/^(GH|NG|ZA|KE|GB|US)$/)||['GH'])[0],name:'',gender:'Man',age:'27',car:'Mercedes S-Class',color:'Black',plate:'GR 2210-24',friends:[{n:'Kofi',g:'Man',a:'28'}],park:'Opposite the fuel station',v:0,leaving:'02:15',house:false,vibe:['Dinner'],vlogName:'',verified:false,seats:2,friendsOk:true,friendPref:'any',rules:['Sober driver','No smoking']},
   posted:null,live:[],liveErr:'',publishing:false,vlog:{id:null,i:0,url:'',loading:false,err:''},
   fb:{role:'Rider',use:'Yes',name:'',contact:'',city:'Accra',safe:'',notes:'',sent:false,busy:false,err:''}
 };
@@ -728,9 +756,9 @@ const friendPolicy=h=>h.friendsOk?(h.friendPref==='women'?'Friends welcome (wome
 const seatsLine=h=>`${h.seats} seat${h.seats===1?'':'s'} open · ${friendPolicy(h)}`;
 const seatsLeft=()=>S.hostDraft.seats-S.requests.filter(r=>r.status==='accepted').reduce((a,r)=>a+1+(r.friend?1:0),0);
 const legsFor=(h,withHouse)=>{
-  const ev=EVENTS[h.event],nx=VENUES[h.v],real=!!(h.pickLL&&h.stopLL);
+  const ev=EVENTS[h.event],nx=VENUES[h.v],real=!!(h.pickLL&&h.stops&&h.stops.length);
   const stops=[{name:'Pickup',sub:h.parkDesc+(real?'':', '+h.parkM+' m from the gate'),pos:real?fromLL(h.pickLL):ev.pos,kind:'park'},
-    real?{name:h.stopName||'Next stop',sub:'Chosen by '+h.name.split(' ')[0],pos:fromLL(h.stopLL),kind:'stop'}:{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}];
+    ...(real?h.stops.map((x,i)=>({name:x.name||('Stop '+(i+1)),sub:'Chosen by '+h.name.split(' ')[0],pos:fromLL(x.ll),kind:'stop'})):[{name:nx.n,sub:nx.note,pos:nx.pos,kind:'stop'}])];
   if(withHouse&&h.house)stops.push({name:'His place',sub:h.house.area+' (optional)',pos:h.house.pos,kind:'house'});
   const dl=S.dropLL||(S.myLL),dropPos=(real&&dl)?fromLL(dl):HOME;
   stops.push({name:(real&&S.dropLL)?'Drop-off: '+(S.dropName||'your address'):(real&&S.myLL)?'Drop-off at your location':'Drop-off at your place',sub:'Only you and your contacts see this',pos:dropPos,kind:'home'});
@@ -887,8 +915,7 @@ function viewSafety(){
   ${profilePanel()}
   <section class="panel"><h3>Your drop-off address</h3>
     ${S.dropLL?`<div class="toggle" style="padding:2px 0"><div><b>${esc(S.dropName||'Saved address')}</b><div class="note">Used as the last stop on every plan</div></div><button class="chip" data-act="dropclear">Remove</button></div>`:'<p class="note">Search the area or landmark where you want to be dropped.</p>'}
-    <div class="field"><input id="dr-q" placeholder="e.g. East Legon, Madina Market" value="${esc(S.dropQ||'')}" maxlength="80"><button class="btn ghost" data-act="dropsearch" style="margin-top:6px" ${S.dropBusy?'disabled':''}>${S.dropBusy?'Searching':'Search'}</button></div>
-    ${(S.dropRes||[]).map((g,i)=>`<button class="chip" style="display:block;margin:4px 0;text-align:left" data-act="droppick" data-i="${i}">${esc(g.name)}</button>`).join('')}
+    <div class="field"><input id="dr-q" data-ac="dr" placeholder="Start typing, e.g. East Legon, Madina Market" value="" maxlength="80" autocomplete="off"><div class="aclist" id="ac-dr"></div></div>
     <p class="note">Saved on this device only. Hosts never see it. Only you and your trusted contacts do.</p></section>
   <section class="panel"><h3>Trusted contacts</h3>
     ${CONTACTS.map(c=>`<div class="toggle" style="padding:2px 0"><div class="crewline">${av(c.name,34)}<div><b>${esc(c.name)}</b><div class="note">${esc(c.phone)}</div></div></div><span style="display:flex;gap:8px;align-items:center">${sw(st.share[c.id]!==false,'tglc',c.id)}<button class="chip" data-act="ctdel" data-id="${c.id}" aria-label="Remove ${esc(c.name)}">Remove</button></span></div>`).join('')||'<p class="note">No contacts yet.</p>'}
@@ -947,10 +974,8 @@ function viewHost(){
     ${d.addEv?`<div class="panel" style="margin:6px 0"><h3>Add an event</h3>
       <label class="fld" for="ne-name">Event name<input class="inp" id="ne-name" maxlength="80" value="${esc(d.neName||'')}" placeholder="e.g. Afrobeats Friday"></label>
       <label class="fld" for="ne-when">Starts<input class="inp" id="ne-when" type="datetime-local" value="${esc(d.neWhen||'')}"></label>
-      <label class="fld" for="ne-q">Venue or area<input class="inp" id="ne-q" maxlength="80" value="${esc(d.neQ||'')}" placeholder="e.g. Skybar 25, Accra"></label>
-      <button class="btn ghost" data-act="nesearch">Search venue</button>
+      <label class="fld" for="ne-q">Venue or area<input class="inp" id="ne-q" data-ac="ne" maxlength="80" value="${esc(d.neQ||'')}" placeholder="Start typing, e.g. Skybar 25" autocomplete="off"></label><div class="aclist" id="ac-ne"></div>
       ${d.neVenue?`<p class="note">Venue: <b>${esc(d.neVenue)}</b></p>`:''}
-      ${(d.neRes||[]).map((g,i)=>`<button class="chip" style="display:block;margin:4px 0;text-align:left" data-act="nepick" data-i="${i}">${esc(g.name)}</button>`).join('')}
       <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" data-act="nesave">Add event</button><button class="btn ghost" data-act="necancel">Cancel</button></div></div>`:''}
     ${S.evOff&&SB?'<p class="note">Shared events need the step 13 database update.</p>':''}
     <label class="fld" for="f-park">Where are you parked?<input class="inp" id="f-park" data-f="park" value="${esc(d.park)}"></label>
@@ -970,14 +995,15 @@ function viewHost(){
     <div class="toggle" style="padding:0"><div><b>Riders can bring a friend</b><div class="note">You still see and approve each friend.</div></div><button class="sw" role="switch" aria-checked="${d.friendsOk}" data-act="hfr"></button></div>
     ${d.friendsOk?`<div><div class="eyebrow" style="margin-bottom:8px">Friends can be</div><div class="chips"><button class="chip" data-act="hfp" data-v="any" aria-pressed="${d.friendPref==='any'}">Women or men</button><button class="chip" data-act="hfp" data-v="women" aria-pressed="${d.friendPref==='women'}">Women only</button></div></div>`:''}
     <div><div class="eyebrow" style="margin-bottom:8px">Car rules riders agree to</div><div class="chips">${RULES.map(r=>`<button class="chip" data-act="hrule" data-v="${r}" aria-pressed="${d.rules.includes(r)}">${r}</button>`).join('')}</div></div></section>
-  ${SB?`<section class="panel"><h3>Pin your real pickup and next stop</h3>
-    <p class="note">Optional. Riders then see the real route instead of the sample one. Choose what you are setting, then tap the map.</p>
-    <div class="chips" role="group" aria-label="What to set"><button class="chip" data-act="pickmode" data-v="pick" aria-pressed="${(d.pickMode||'pick')==='pick'}">Pickup spot</button><button class="chip" data-act="pickmode" data-v="stop" aria-pressed="${d.pickMode==='stop'}">Next stop</button></div>
-    ${window.L?mapAny({picker:true,markers:[],aria:'Tap the map to set a place'}):'<p class="note">The map could not load. Check your connection.</p>'}
-    <p class="note" id="pickInfo">${d.pickLL?'Pickup set. ':'No pickup yet. '}${d.stopLL?'Next stop: <b>'+esc(d.stopName||'Dropped pin')+'</b>.':'No next stop yet.'}</p>
-    <div class="actions"><button class="btn ghost act" data-act="geoloc">${ic('pin',18)}<span>My location</span></button>${(d.pickLL||d.stopLL)?'<button class="btn ghost act" data-act="pickclear"><span>Clear pins</span></button>':''}</div>
-    ${d.pickMode==='stop'?`<div style="display:flex;gap:10px;align-items:flex-end"><label class="fld" style="flex:1;min-width:0" for="f-q">Search a place in Ghana<input class="inp" id="f-q" data-f="geoQ" value="${esc(d.geoQ||'')}" placeholder="e.g. Osu Oxford Street"></label><button class="btn sm" style="flex:none;min-height:46px" data-act="geosearch" ${d.geoBusy?'disabled':''}>${d.geoBusy?'Searching…':'Search'}</button></div>
-    ${(d.geo&&d.geo.length)?`<ul class="list">${d.geo.map((g,i)=>`<li><button class="btn ghost sm" style="width:100%;justify-content:flex-start;text-align:left" data-act="geopick" data-i="${i}">${esc(g.name)}</button></li>`).join('')}</ul>`:''}`:''}
+  ${SB?`<section class="panel"><h3>Your route</h3>
+    <p class="note">Optional. Type a place and pick a suggestion, or tap the map. Riders then see the real route.</p>
+    <div class="rt">
+      <div class="rtrow"><i class="rtd p"></i><div class="rtin"><input class="inp" data-ac="p" data-focus="p" value="${esc(d.pickName||'')}" placeholder="Pickup spot (where you are parked)" autocomplete="off" aria-label="Pickup spot"><div class="aclist" id="ac-p"></div></div><button class="rtx" data-act="geoloc" aria-label="Use my location" title="Use my location">${ic('pin',16)}</button></div>
+      ${d.stops.map((x,i)=>`<div class="rtrow"><i class="rtd s">${i+1}</i><div class="rtin"><input class="inp" data-ac="s${i}" data-focus="s${i}" value="${esc(x.name||'')}" placeholder="Stop ${i+1}" autocomplete="off" aria-label="Stop ${i+1}"><div class="aclist" id="ac-s${i}"></div></div><button class="rtx" data-act="stopdel" data-i="${i}" aria-label="Remove stop ${i+1}">${ic('x',16)}</button></div>`).join('')}
+    </div>
+    ${d.stops.length<3?`<button class="btn ghost sm" data-act="stopadd" style="margin:6px 0">${ic('plus',16)}Add stop</button>`:''}
+    ${window.L?`<p class="note" id="pickInfo">Tap the map to set <b>${(d.rowFocus||'p')==='p'?'the pickup spot':'stop '+(Number((d.rowFocus||'s0').slice(1))+1)}</b> (the box you last tapped).</p>${mapAny({picker:true,markers:[],aria:'Tap the map to set a place'})}`:'<p class="note">The map could not load. Check your connection.</p>'}
+    ${(d.pickLL||d.stops.length)?'<div class="actions"><button class="btn ghost act" data-act="pickclear"><span>Clear route</span></button></div>':''}
   </section>`:''}
   <section class="panel"><h3>Where the night goes</h3>
     <label class="fld" for="f-v">Next stop<select class="inp" id="f-v" data-f="v">${VENUES.map((v,i)=>`<option value="${i}" ${d.v===i?'selected':''}>${esc(v.n)}</option>`).join('')}</select></label>
@@ -1547,12 +1573,12 @@ function act(a,el,ev){
     case 'tglchk':S.settings.checkin=!S.settings.checkin;renderView();break;
     case 'fplus':S.hostDraft.friends.push({n:'',g:'Man',a:'27'});S.hostDraft.friends=S.hostDraft.friends.slice(0,7);renderView();break;
     case 'fminus':S.hostDraft.friends.pop();renderView();break;
-    case 'pickmode':S.hostDraft.pickMode=v;renderView();break;
-    case 'pickclear':S.hostDraft.pickLL=null;S.hostDraft.stopLL=null;S.hostDraft.stopName='';renderView();break;
+    case 'stopadd':if(S.hostDraft.stops.length<3){S.hostDraft.stops.push({name:'',ll:null});S.hostDraft.rowFocus='s'+(S.hostDraft.stops.length-1);}renderView();break;
+    case 'stopdel':{S.hostDraft.stops.splice(Number(el.dataset.i),1);S.hostDraft.rowFocus='p';renderView();break;}
+    case 'acpick':{const g=(AC[el.dataset.k]||[])[Number(el.dataset.i)];if(g)acPick(el.dataset.k,g);break;}
+    case 'pickclear':S.hostDraft.pickLL=null;S.hostDraft.pickName='';S.hostDraft.stops=[];S.hostDraft.rowFocus='p';renderView();break;
     case 'geoloc':if(!navigator.geolocation){toast('Location is not available on this device');break;}
-      navigator.geolocation.getCurrentPosition(p=>{S.hostDraft.pickLL=[p.coords.latitude,p.coords.longitude];S.myLL=S.hostDraft.pickLL;renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
-    case 'geosearch':geoSearch();break;
-    case 'geopick':{const g=(S.hostDraft.geo||[])[Number(el.dataset.i)];if(g){S.hostDraft.stopLL=g.ll;S.hostDraft.stopName=g.name;S.hostDraft.pickMode='stop';renderView();}break;}
+      navigator.geolocation.getCurrentPosition(p=>{S.hostDraft.pickLL=[p.coords.latitude,p.coords.longitude];S.hostDraft.pickName='My location';S.myLL=S.hostDraft.pickLL;renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
     case 'hhouse':S.hostDraft.house=!S.hostDraft.house;renderView();break;
     case 'hvibe':{const a=S.hostDraft.vibe;const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
     case 'publish':SB?publishReal():publish();break;
@@ -1584,7 +1610,8 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){const g=e.target.closest&&e.target.closest('g[data-act]');if(g)act(g.dataset.act,g,e);}
 });
 document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='f-q'&&e.key==='Enter'){e.preventDefault();S.hostDraft.geoQ=t.value;geoSearch();return;}if(t&&t.id==='chatIn'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
-document.addEventListener('input',e=>{
+document.addEventListener('focusin',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.focus)S.hostDraft.rowFocus=t.dataset.focus;});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.ac){const k=t.dataset.ac;if(k==='p')S.hostDraft.pickName=t.value;else if(k[0]==='s'&&S.hostDraft.stops[Number(k.slice(1))])S.hostDraft.stops[Number(k.slice(1))].name=t.value;acInput(t);return;}
   const el=e.target;
   if(el.dataset.fr!==undefined){S.hostDraft.friends[Number(el.dataset.fr)][el.dataset.k]=el.value;return;}
   if(el.dataset.df){S.draft.friend[el.dataset.df]=el.value;return;}
@@ -1612,7 +1639,7 @@ function planToHost(p,photo){
   const vn=VENUES[p.next_venue]||VENUES[0];
   return {id:'p_'+p.id,planId:p.id,real:true,mine,name:hn,rating:0,trips:0,car:p.car,color:p.color,plate:null,event:p.event,parkDesc:p.park_desc,parkM:p.park_m||100,
     crew:[[hn,'Driver',p.host.gender,p.host.age,photo||null],...friends],seats:p.seats,friendsOk:p.friends_ok,friendPref:p.friend_pref,rules:(p.rules&&p.rules.length)?p.rules:['Sober driver'],
-    v:VENUES[p.next_venue]?p.next_venue:0,pickLL:(p.pickup_lat!=null&&p.pickup_lng!=null)?[p.pickup_lat,p.pickup_lng]:null,stopLL:(p.stop_lat!=null&&p.stop_lng!=null)?[p.stop_lat,p.stop_lng]:null,stopName:p.stop_name||'',house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
+    v:VENUES[p.next_venue]?p.next_venue:0,pickLL:(p.pickup_lat!=null&&p.pickup_lng!=null)?[p.pickup_lat,p.pickup_lng]:null,stops:(Array.isArray(p.stops)&&p.stops.length)?p.stops.filter(x=>x&&Array.isArray(x.ll)).map(x=>({name:String(x.name||'Stop'),ll:x.ll})):((p.stop_lat!=null&&p.stop_lng!=null)?[{name:p.stop_name||'Next stop',ll:[p.stop_lat,p.stop_lng]}]:[]),house:p.house_offered?{area:p.house_area||'Nearby',pos:HOUSES[p.house_idx||0]}:null,vibe:p.vibe||[],leaving:p.leaving_text,
     vlog:['Tonight with '+hn,vn.n+' next','Everyone gets home safe'],vlogPath:p.vlog_path||null,ig:p.host.instagram||null,hostUid:p.host_id,verified:false};
 }
 let liveBusy=false;
@@ -1686,7 +1713,8 @@ async function publishReal(){
       rules:d.rules.length?d.rules.slice():['Sober driver'],vibe:d.vibe.length?d.vibe.slice():['Chill'],
       crew:d.friends.map(f=>({n:(f.n||'Friend').trim().slice(0,40),g:f.g,a:Number(f.a)||27})),active:true};
     if(d.pickLL){row.pickup_lat=d.pickLL[0];row.pickup_lng=d.pickLL[1];}
-    if(d.stopLL){row.stop_name=(d.stopName||'Next stop').slice(0,80);row.stop_lat=d.stopLL[0];row.stop_lng=d.stopLL[1];}
+    const okStops=d.stops.filter(x=>x.ll).slice(0,3);
+    if(okStops.length){row.stop_name=(okStops[0].name||'Next stop').slice(0,80);row.stop_lat=okStops[0].ll[0];row.stop_lng=okStops[0].ll[1];row.stops=okStops.map(x=>({name:(x.name||'Stop').slice(0,80),ll:x.ll}));}
     if(EVENTS[d.event]&&EVENTS[d.event].row)await evSaveRow(EVENTS[d.event].row);
     let vlogPath=null;
     if(d.vlogFile){
@@ -1699,10 +1727,10 @@ async function publishReal(){
     const off=await SB.from('plans').update({active:false}).eq('host_id',A.user.id).eq('active',true);
     if(off.error)throw off.error;
     let ins=await SB.from('plans').insert(row).select('id').single();
-    if(ins.error&&/pickup_|stop_/.test(ins.error.message||'')){
-      ['pickup_lat','pickup_lng','stop_name','stop_lat','stop_lng'].forEach(k=>delete row[k]);
+    if(ins.error&&/pickup_|stop_|stops/.test(ins.error.message||'')){
+      ['pickup_lat','pickup_lng','stop_name','stop_lat','stop_lng','stops'].forEach(k=>delete row[k]);
       ins=await SB.from('plans').insert(row).select('id').single();
-      if(!ins.error)toast('Posted without your pins. Run supabase-step11-places.sql to save real places.');
+      if(!ins.error)toast('Posted without your pins. Run supabase-step14-stops.sql (and step 11) to save real places.');
     }
     if(ins.error)throw ins.error;
     const pr=await SB.from('plan_private').insert({plan_id:ins.data.id,plate:d.plate.trim().toUpperCase().slice(0,20)});
