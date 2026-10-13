@@ -151,6 +151,36 @@ p{margin:0}
 .pcard .pb{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .pcard .chain{font-size:13px;color:var(--ink-2)}.pcard .chain b{color:var(--ink)}
 .pcard .stats{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}.pcard .stats b{font-size:15px}
+.view.rv{padding:0;overflow:hidden}
+.view.rv>*{max-width:520px}
+.view.rv>.reels{flex:1;min-height:0}
+.reels{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;background:#000;overscroll-behavior:contain}
+.reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;background:#000;color:#fff;overflow:hidden}
+.reel>img,.reel>video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.reel .rbg{position:absolute;inset:0;display:grid;place-items:center;padding:36px;text-align:center;font:800 26px/1.2 var(--f-display)}
+.reel .rshade{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.35),transparent 22%,transparent 50%,rgba(0,0,0,.78));pointer-events:none}
+.reel .rinfo{position:absolute;left:14px;right:84px;bottom:22px;display:flex;flex-direction:column;gap:8px;z-index:2}
+.reel .rtop{position:absolute;left:14px;top:12px;z-index:2;font-size:12px;font-weight:700;display:flex;gap:6px}
+.reel .rtop span{background:rgba(0,0,0,.45);padding:4px 10px;border-radius:999px}
+.reel .ruser{display:flex;align-items:center;gap:10px;background:none;border:0;color:#fff;text-align:left;padding:0}
+.reel .ruser b{font-size:16px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.reel .rcap{font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.reel .rmeta{font-size:12px;opacity:.9}
+.reel .rrail{position:absolute;right:12px;bottom:150px;display:flex;flex-direction:column;gap:14px;align-items:center;z-index:2}
+.rbtn{width:50px;height:50px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;backdrop-filter:blur(6px)}
+.rbtn.on{background:var(--accent)}
+.rbtn+small{display:block;text-align:center;font-size:11px;margin-top:2px}
+.rempty{height:100%;display:grid;place-items:center;text-align:center;color:#fff;padding:30px}
+.fabmenu{position:absolute;right:16px;bottom:calc(152px + env(safe-area-inset-bottom));z-index:16;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.fabopt{display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:700;border:0;box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:pointer}
+@media(min-width:1000px){.fabmenu{bottom:100px;right:32px}}
+.uhead{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.uhead .av{box-shadow:0 0 0 3px var(--accent)}
+.ucounts{display:flex;gap:22px;justify-content:center}.ucounts b{display:block;font-size:18px}.ucounts span{font-size:12px;color:var(--ink-2)}
+.ugrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ugrid .hpp{width:100%}
+.lpin.friend{background:#1769AA;color:#fff;width:32px;height:32px;font-size:13px}
+.cmpprev{width:100%;max-height:48vh;object-fit:contain;border-radius:14px;background:#000}
 .linkish{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
 .hpcar{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px;background:var(--surface-2);display:block}
 .hpposts{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}
@@ -673,7 +703,7 @@ function hydrateMaps(){
     (o.markers||[]).forEach(m=>{
       const ll=m.ll||toLL(m.pos);all.push(ll);
       if(m.kind==='fuzz'){L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map).bindTooltip(m.label||'Area only');return;}
-      const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}">${m.kind==='park'?(m.count||''):(m.kind==='stop'?esc(m.glyph||''):'')}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+      const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}">${m.kind==='park'?(m.count||''):((m.kind==='stop'||m.kind==='friend')?esc(m.glyph||''):'')}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
       const mk=L.marker(ll,{icon,keyboard:true,title:m.aria||m.label||''}).addTo(map);
       if(m.label&&m.kind!=='you')mk.bindTooltip(m.label,{direction:'top',offset:[0,-12]});
       if(m.hit)mk.on('click',()=>{const b=document.createElement('button');b.dataset.act='open';b.dataset.id=m.hit;document.body.appendChild(b);b.click();b.remove();});
@@ -686,7 +716,7 @@ function hydrateMaps(){
       o.heat.forEach(p=>L.circle(p.ll,{pane:'heat',radius:320+Math.min(p.n,8)*90,stroke:false,fillColor:o.heatColor||acc,fillOpacity:Math.min(.6,.24+p.n*.09),interactive:false}).addTo(map));
       o.heat.forEach(p=>all.push(p.ll));
     }
-    if(o.center&&S.myLL)map.setView(S.myLL,14,{animate:false});
+    if(o.center)map.setView(S.myLL||[5.6037,-0.187],S.myLL?14:12,{animate:false});
     if(o.picker){PICK={map,layer:L.layerGroup().addTo(map)};map.on('click',e=>pickAt([e.latlng.lat,e.latlng.lng]));redrawPick();}
     if(o.routeKey&&o.route&&o.route.length>1)ROUTES[o.routeKey]=o.route.map(toLL);
     if(o.live){LIVE={map,key:o.routeKey,car:null,planId:o.live,offCount:0,alerted:false};startLivePoll(o.live);}
@@ -750,7 +780,7 @@ function mapSVG(o){
   if(o.trail&&o.trail.length>1)s+=`<polyline class="m-trail" points="${o.trail.map(p=>p.join(',')).join(' ')}"/>`;
   if(o.route){const pl=o.route.map(p=>p.join(',')).join(' ');s+=`<polyline class="m-route-bg" points="${pl}"/><polyline class="m-route" points="${pl}"/>`;}
   if(o.dev)s+=`<line class="m-dev" x1="${o.dev.from[0]}" y1="${o.dev.from[1]}" x2="${o.dev.to[0]}" y2="${o.dev.to[1]}"/>`;
-  (o.markers||[]).forEach(m=>{s+=mk(m,k);});
+  (o.markers||[]).map(m=>m.pos?m:(m.ll?{...m,pos:fromLL(m.ll)}:null)).filter(Boolean).forEach(m=>{s+=mk(m,k);});
   if(o.car){const c=o.car,ang=Math.atan2(c.dx,-c.dy)*180/Math.PI;
     s+=`<g transform="translate(${c.x} ${c.y})"><circle class="pulse" r="${12*k}" style="fill:${o.dev?'var(--bad)':'var(--accent)'}"/><g transform="rotate(${ang}) scale(${k})"><path d="M0 -12L8 9L0 5L-8 9Z" style="fill:${o.dev?'var(--bad)':'var(--accent)'};stroke:var(--surface);stroke-width:2;stroke-linejoin:round"/></g></g>`;}
   return `<svg class="map" viewBox="${o.box.x.toFixed(1)} ${o.box.y.toFixed(1)} ${o.box.w.toFixed(1)} ${o.box.h.toFixed(1)}" role="img" aria-label="${esc(o.aria||'Map')}">${s}</svg>`;
@@ -759,7 +789,7 @@ function mapSVG(o){
 /* ---------- state ---------- */
 const S={
   role:roleInit(),tab:roleInit()==='host'?'home':'tonight',event:'a',group:99,myReqs:{},hostReqs:[],reqOff:false,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},onlyFol:false,socialOff:false,
-  sheet:null,draft:null,req:null,trip:null,rating:0,
+  friends:new Set(),reels:[],sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
   auth:{user:null,status:'idle',mode:'pw',pw:'',email:'',err:'',profile:null,editing:false,saving:false,file:null,preview:'',form:{first_name:'',age:'',gender:'Woman',vibes:[],instagram:''}},
@@ -820,8 +850,8 @@ function renderHdr(){
   ${S.role?`<span class="rolechip">${S.role==='host'?'Hosting':'Riding'}</span>`:''}</div>`;
 }
 function tabList(){
-  return S.role==='host'?[['home','Home','list'],['map','Map','map'],['profile','Profile','user'],['safety','Safety','shield']]
-   :[['tonight','Tonight','list'],['map','Map','map'],['trip','Trip','route'],['profile','Profile','user'],['safety','Safety','shield']];
+  return S.role==='host'?[['home','Home','list'],['reels','Reels','play'],['map','Map','map'],['profile','Profile','user'],['safety','Safety','shield']]
+   :[['tonight','Tonight','list'],['reels','Reels','play'],['map','Map','map'],['trip','Trip','route'],['profile','Profile','user'],['safety','Safety','shield']];
 }
 function renderTabs(){
   const T=S.role?tabList():[],cur=(S.tab==='post'?'home':S.tab);
@@ -830,9 +860,13 @@ function renderTabs(){
 }
 function renderFab(){
   const el=$('#fab');if(!el)return;
-  if(!S.role||S.sheet){el.innerHTML='';return;}
-  if(S.role==='host'){el.innerHTML=(S.tab==='post'||S.tab==='safety')?'':`<button class="fab" data-act="tab" data-v="post" aria-label="Post a plan" title="Post a plan">${ic('plus',26)}</button>`;}
-  else{el.innerHTML=(S.tab==='profile'||S.tab==='tonight'||S.tab==='map')?`<label class="fab" style="cursor:pointer" aria-label="Add to your story" title="Add to your story">${ic('plus',26)}<input type="file" accept="image/*,video/*" data-f="postFile" hidden></label>`:'';}
+  if(!S.role||S.sheet||S.tab==='safety'||S.tab==='post'){el.innerHTML='';return;}
+  const pick=`<label class="fabopt" style="cursor:pointer">${ic('play',18)}Post to Reels<input type="file" accept="image/*,video/*" data-f="postFile" hidden></label>`;
+  if(S.role==='host'){
+    el.innerHTML=(S.fabOpen?`<div class="fabmenu">${pick}<button class="fabopt" data-act="tab" data-v="post">${ic('car',18)}Post a plan</button></div>`:'')+`<button class="fab" data-act="fabtoggle" aria-label="${S.fabOpen?'Close menu':'Create'}" aria-expanded="${!!S.fabOpen}" title="Create" style="${S.fabOpen?'transform:rotate(45deg)':''}">${ic('plus',26)}</button>`;
+  }else{
+    el.innerHTML=`<label class="fab" style="cursor:pointer" aria-label="Post to Reels" title="Post to Reels">${ic('plus',26)}<input type="file" accept="image/*,video/*" data-f="postFile" hidden></label>`;
+  }
 }
 function crewLabel(h){const n=h.crew.length;return n===1?'Just him in the car':`${n} in the car`;}
 function cardHTML(h){
@@ -916,50 +950,82 @@ function viewTonight(){
   ${feedHTML}
   <section class="panel"><h3>Help shape Pull Up</h3><p class="muted">This is an early prototype. Tell us what feels right, what worries you and whether you would use it. Leave your WhatsApp or email to hear when it opens.</p><button class="btn" data-act="fb">Share feedback or join the waitlist</button></section>`;
 }
+const ACCRA=[5.6037,-0.1870];
+const ACCRA_SPOTS=[['Osu',5.5560,-0.1820,6],['Labadi',5.5610,-0.1450,4],['East Legon',5.6350,-0.1570,5],['Airport City',5.6040,-0.1730,3],['Cantonments',5.5780,-0.1750,2],['Madina',5.6800,-0.1700,2],['Tetteh Quarshie',5.6200,-0.1730,3],['Circle',5.5700,-0.2100,2],['Spintex',5.6350,-0.1000,2],['Jamestown',5.5330,-0.2130,1]];
+const dummyHeat=()=>ACCRA_SPOTS.map(x=>({ll:[x[1],x[2]],n:x[3]}));
+const SAMPLE_FRIENDS=[['Kofi M.',0.004,0.003,4],['Ama S.',-0.006,0.002,9],['Efua B.',0.002,-0.007,17]];
+function distKm(a,b){const R=6371,r=x=>x*Math.PI/180,dl=r(b[0]-a[0]),dn=r(b[1]-a[1]),h=Math.sin(dl/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
 async function loadHeat(){
   if(!SB||!S.auth.user||S.role!=='host')return;
   try{const r=await SB.rpc('rider_heat');if(r.error){S.heatOff=true;return;}S.heatOff=false;
     const h=(r.data||[]).map(x=>({ll:[x.lat,x.lng],n:Number(x.n)||1})),k=JSON.stringify(h);
     if(k!==S.heatKey){S.heatKey=k;S.riderHeat=h;if(S.tab==='map'&&!S.sheet)renderView();}}catch(e){S.heatOff=true;}
 }
+async function loadFriendsNear(){
+  if(!SB||!S.auth.user)return;
+  try{
+    const r=await SB.rpc('friends_nearby');if(r.error){S.friendsOff=true;return;}S.friendsOff=false;
+    const rows=r.data||[],ph={},pp=rows.map(x=>x.photo_path).filter(Boolean);
+    if(pp.length){try{const a=await SB.storage.from('avatars').createSignedUrls(pp,3600);((a&&a.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)ph[x.path]=x.signedUrl;});}catch(e){}}
+    const list=rows.map(x=>({id:x.id,name:x.first_name,ll:[x.lat,x.lng],photo:ph[x.photo_path]||null,at:x.updated_at})),k=JSON.stringify(list.map(x=>[x.id,x.ll]));
+    if(k!==S.fnKey){S.fnKey=k;S.friendsNear=list;if(S.tab==='map'&&!S.sheet)renderView();}
+  }catch(e){S.friendsOff=true;}
+}
 function pingOnce(){
   if(!SB||!S.auth.user||!navigator.geolocation)return;
   navigator.geolocation.getCurrentPosition(p=>{
-    const r=v=>Math.round(v/0.003)*0.003;S.myLL=[p.coords.latitude,p.coords.longitude];
-    SB.from('rider_pings').upsert({rider_id:S.auth.user.id,lat:r(p.coords.latitude),lng:r(p.coords.longitude),updated_at:new Date().toISOString()}).then(x=>{if(x&&x.error){stopPing();toast('Sharing needs the step 16 database update.');}}).catch(()=>{});
+    S.myLL=[p.coords.latitude,p.coords.longitude];
+    const r=(v,g)=>Math.round(v/g)*g;
+    if(S.pingOn)SB.from('rider_pings').upsert({rider_id:S.auth.user.id,lat:r(p.coords.latitude,0.003),lng:r(p.coords.longitude,0.003),updated_at:new Date().toISOString()}).then(x=>{if(x&&x.error){stopPing();toast('Sharing needs the step 16 database update.');}}).catch(()=>{});
+    if(S.fshare)SB.from('friend_pos').upsert({user_id:S.auth.user.id,lat:r(p.coords.latitude,0.002),lng:r(p.coords.longitude,0.002),updated_at:new Date().toISOString()}).then(x=>{if(x&&x.error){stopFShare();toast('Friend sharing needs the step 17 database update.');}}).catch(()=>{});
   },()=>{},{enableHighAccuracy:false,timeout:10000});
 }
-function startPing(){if(!SB||!S.auth.user){toast('Sign in first');S.tab='profile';renderAll();return;}S.pingOn=true;pingOnce();clearInterval(S.pingT);S.pingT=setInterval(pingOnce,60000);if(S.tab==='map')renderView();}
-function stopPing(){S.pingOn=false;clearInterval(S.pingT);if(SB&&S.auth.user)SB.from('rider_pings').delete().eq('rider_id',S.auth.user.id).then(()=>{}).catch(()=>{});if(S.tab==='map')renderView();}
+function ensureTimer(){clearInterval(S.pingT);if(S.pingOn||S.fshare)S.pingT=setInterval(pingOnce,60000);}
+function startPing(){if(!SB||!S.auth.user){toast('Sign in first');S.tab='profile';renderAll();return;}S.pingOn=true;pingOnce();ensureTimer();if(S.tab==='map')renderView();}
+function stopPing(){S.pingOn=false;ensureTimer();if(SB&&S.auth.user)SB.from('rider_pings').delete().eq('rider_id',S.auth.user.id).then(()=>{}).catch(()=>{});if(S.tab==='map')renderView();}
+function startFShare(){if(!SB||!S.auth.user){toast('Sign in first');S.tab='profile';renderAll();return;}S.fshare=true;pingOnce();ensureTimer();if(S.tab==='map')renderView();}
+function stopFShare(){S.fshare=false;ensureTimer();if(SB&&S.auth.user)SB.from('friend_pos').delete().eq('user_id',S.auth.user.id).then(()=>{}).catch(()=>{});if(S.tab==='map')renderView();}
 function viewMap(){
   const host=S.role==='host';
   if(!S.myLL&&!S.geoAsked&&navigator.geolocation){S.geoAsked=true;setTimeout(()=>navigator.geolocation.getCurrentPosition(p=>{S.myLL=[p.coords.latitude,p.coords.longitude];if(S.tab==='map'&&!S.sheet)renderView();},()=>{},{timeout:10000}),0);}
   if(host&&(!S.heatAt||Date.now()-S.heatAt>30000)){S.heatAt=Date.now();setTimeout(loadHeat,0);}
+  if(SB&&S.auth.user&&(!S.fnAt||Date.now()-S.fnAt>30000)){S.fnAt=Date.now();setTimeout(loadFriendsNear,0);}
   const pts=[...Object.values(EVENTS).map(e=>e.pos),HOME];
   const box=boxFor(pts,wide()?1.5:0.9,66,300);
-  const markers=[],heat=[];
+  const markers=[];let heat=[];
   const hs=allHosts();
   if(!host){
-    hs.forEach(h=>{const ev=EVENTS[h.event];const ll=h.pickLL?h.pickLL:toLL(ev?ev.pos:HOME);heat.push({ll,n:Math.max(1,h.seats||1)});});
+    hs.filter(h=>h.real).forEach(h=>{const ev=EVENTS[h.event];heat.push({ll:h.pickLL?h.pickLL:toLL(ev?ev.pos:HOME),n:Math.max(1,h.seats||1)});});
     hs.forEach((h,i)=>{const ev=EVENTS[h.event]||{pos:HOME};const a=-Math.PI/2+i*0.9,r=h.pickLL?0:30;
       markers.push({kind:'park',glyph:'P',pos:h.pickLL?fromLL(h.pickLL):[ev.pos[0]+Math.cos(a)*r,ev.pos[1]+Math.sin(a)*r],count:h.crew.length,hit:h.id,aria:`${h.name}, ${h.crew.length} in the car`});});
   }else{
     (S.riderHeat||[]).forEach(p=>heat.push(p));
     if(S.posted&&S.posted.pickLL)markers.push({kind:'park',glyph:'P',ll:S.posted.pickLL,count:S.posted.crew.length,aria:'Your car'});
   }
+  const realTotal=heat.reduce((a,p)=>a+p.n,0),sampleHeat=realTotal<3;
+  if(sampleHeat)heat=[...heat,...dummyHeat()];
+  const centre=S.myLL||ACCRA;
+  const real=(S.friendsNear||[]),sampleF=!real.length&&!(SB&&S.auth.user&&S.friends.size);
+  const friends=real.length?real:(sampleF?SAMPLE_FRIENDS.map((f,i)=>({id:'sf'+i,name:f[0],ll:[centre[0]+f[1],centre[1]+f[2]],mins:f[3],sample:true})):[]);
+  friends.forEach(f=>markers.push({kind:'friend',glyph:esc((f.name||'?')[0]),ll:f.ll,label:f.name}));
   Object.values(EVENTS).filter(e=>!e.ghost).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.venue}));
-  const order=['event','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
-  const total=heat.reduce((a,p)=>a+p.n,0);
+  const order=['event','friend','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
   const title=host?'Where riders are looking':'Where hosts are parked';
   const sub=host?'The glow shows roughly where riders who opted in are right now. It is rough areas only, never names or exact spots.':'The glow shows where hosts are parked near you. Brighter means more cars. Tap a pin to see the plan.';
   const ping=host?'':`<div class="toggle"><div><b>Let nearby hosts see I'm looking</b><div class="note">Shares a rough area (about 300 m), no name, for 30 minutes at a time. Off by default.</div></div><button class="sw" role="switch" aria-checked="${!!S.pingOn}" data-act="pingtoggle"></button></div>`;
+  const fshare=`<div class="toggle"><div><b>Share my location with friends</b><div class="note">Only people you follow who also follow you can see a rough dot (about 200 m). Off by default.</div></div><button class="sw" role="switch" aria-checked="${!!S.fshare}" data-act="fsharetoggle"></button></div>`;
+  const ago=f=>{if(f.mins!=null)return f.mins+' min ago';const m=Math.max(0,Math.round((Date.now()-new Date(f.at))/60000));return m+' min ago';};
+  const fl=friends.length?`<section class="panel"><div class="row"><h3>Friends near you</h3>${sampleF?'<span class="tag">Sample</span>':''}</div>
+    ${friends.map(f=>`<div class="toggle" style="padding:4px 0"><div class="crewline">${f.photo?`<span class="av" style="width:36px;height:36px"><img class="p" src="${esc(f.photo)}" alt=""></span>`:av(f.name,36)}<div><b>${esc(f.name)}</b><div class="note">${distKm(centre,f.ll).toFixed(1)} km away · ${ago(f)}</div></div></div>${f.sample?'':`<button class="chip" data-act="user" data-uid="${esc(f.id)}">Profile</button>`}</div>`).join('')}
+    ${sampleF?'<p class="note">Sample friends. Follow people and have them follow you back to see real friends here.</p>':''}</section>`:`<p class="note">${S.friendsOff?'Friends near you needs the step 17 database update.':'No friends are sharing nearby. Friends are people you follow who follow you back.'}</p>`;
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>${title}</h2><p class="muted">${sub}</p></div>
   <div class="split"><div class="map-wrap">${mapAny({box,markers,heat,center:true,aria:title})}</div>
   ${host?'':`<div class="hscroll">${hs.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="muted">Leaving ${esc(h.leaving)}</span></button>`).join('')}</div>`}</div>
-  ${host&&!total?`<p class="note">${S.heatOff?'Rider heat needs the step 16 database update.':'No riders are sharing nearby right now. Check back after the event ends.'}</p>`:''}
-  ${ping}
+  ${sampleHeat?`<p class="note">Showing sample activity around Accra until more people join. ${S.heatOff&&host?'Rider heat needs the step 16 database update.':''}</p>`:''}
+  ${fl}
+  ${ping}${fshare}
   <div class="actions" style="margin-top:4px"><button class="btn ghost act" data-act="locate">${ic('pin',18)}<span>${S.myLL?'Update my location':'Show where I am'}</span></button></div>
-  <p class="note">Your own location stays on your phone unless you turn sharing on.</p>`;
+  <p class="note">Your own location stays on your phone unless you turn a sharing switch on.</p>`;
 }
 function profilePanel(){
   const A=S.auth;
@@ -1071,6 +1137,7 @@ function viewHostHome(){
   if(S.posted){const h=S.posted;return `<div class="hero"><span class="eyebrow">You are live</span><h2>Riders near ${esc(EVENTS[h.event].venue)} can see your plan</h2>${h.real&&SB&&!S.socialOff?`<p class="note">${S.fcounts[h.hostUid]||0} follower${(S.fcounts[h.hostUid]||0)===1?'':'s'}. You see the number only, never who.</p>`:''}</div>${cardHTML(h)}${livePanel()}${requestsHTML()}<button class="btn" data-act="seerider">See it as a rider sees it</button><button class="btn ghost" data-act="tab" data-v="post">Post a different plan</button>${h.real?'<button class="btn danger" data-act="endplan">End my plan</button>':''}`;}
   return `<div class="hero"><span class="eyebrow">Host</span><h1>Nothing live yet</h1><p class="muted">Post tonight's plan and riders near the event will see it. Tap the + button, or the button below.</p></div>
   ${SB&&!S.auth.profile?`<div class="rule">${ic('lock',18)}<span style="flex:1">Sign in and create your profile to post a live plan.</span><button class="btn sm" data-act="tab" data-v="profile">Go</button></div>`:''}
+  ${SB&&S.auth.profile&&!carOk()?`<div class="rule" style="background:var(--accent-soft)">${ic('alert',18)}<span style="flex:1">Add your car, its colour and a photo before you post a plan.</span><button class="btn sm" data-act="tab" data-v="profile">Add</button></div>`:''}
   <button class="btn" data-act="tab" data-v="post">${ic('plus',18)}Post tonight's plan</button>
   <section class="panel"><h3>Make your page worth opening</h3><p class="note">Riders tap your name to see your car, your story and your Instagram. Add a car photo and a story post in Profile.</p><button class="btn ghost" data-act="tab" data-v="profile">Open my profile</button></section>`;
 }
@@ -1093,7 +1160,9 @@ function viewHostPost(){
     <label class="fld" for="f-park">Where are you parked?<input class="inp" id="f-park" data-f="park" value="${esc(d.park)}"></label>
     <label class="fld" for="f-time">Leaving at<input class="inp" id="f-time" type="time" data-f="leaving" value="${esc(d.leaving)}"></label></section>
   <section class="panel"><h3>You and the car</h3>
-    ${SB&&S.auth.profile?`<p class="muted">Posting as <b>${esc(S.auth.profile.first_name)}</b>, ${S.auth.profile.age}. Your photo and details come from your profile.</p>`:`    <label class="fld" for="f-name">Your first name<input class="inp" id="f-name" data-f="name" placeholder="e.g. Kofi A." value="${esc(d.name)}"></label>
+    ${SB&&S.auth.profile?`<p class="muted">Posting as <b>${esc(S.auth.profile.first_name)}</b>, ${S.auth.profile.age}. Your photo and details come from your profile.</p>
+    <div class="row" style="justify-content:flex-start;gap:10px">${S.carUrl?`<img src="${esc(S.carUrl)}" alt="" style="width:64px;height:44px;object-fit:cover;border-radius:8px">`:ic('car',20)}<div><b>${esc([S.auth.profile.car_color,S.auth.profile.car].filter(Boolean).join(' ')||'No car yet')}</b><div class="note">${carOk()?'From your profile':'Add your car and photo in Profile before posting'}</div></div></div>
+`:`    <label class="fld" for="f-name">Your first name<input class="inp" id="f-name" data-f="name" placeholder="e.g. Kofi A." value="${esc(d.name)}"></label>
     <div class="two"><label class="fld" for="f-g">I am<select class="inp" id="f-g" data-f="gender">${['Man','Woman'].map(g=>`<option ${d.gender===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="fld" for="f-age">Age<input class="inp" id="f-age" type="number" min="18" max="99" data-f="age" value="${esc(d.age)}"></label></div>`}
     <div class="two"><label class="fld" for="f-car">Car<input class="inp" id="f-car" data-f="car" value="${esc(d.car)}"></label><label class="fld" for="f-color">Colour<input class="inp" id="f-color" data-f="color" value="${esc(d.color)}"></label></div>
     <label class="fld" for="f-plate">Plate number<input class="inp mono" id="f-plate" data-f="plate" value="${esc(d.plate)}"></label></section>
@@ -1322,7 +1391,7 @@ async function loadSocial(rows){
   try{
     const f=await SB.from('follows').select('followed_id').eq('follower_id',A.user.id);
     if(f.error){S.socialOff=true;return;}
-    S.socialOff=false;S.fol=new Set((f.data||[]).map(x=>x.followed_id));
+    S.socialOff=false;S.fol=new Set((f.data||[]).map(x=>x.followed_id));await loadFriends();
     const ids=[...new Set(rows.map(p=>p.host_id))];
     if(ids.length){const c=await SB.rpc('follower_counts',{host_ids:ids});S.fcounts={};((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});}
     const g=await SB.rpc('going_counts');S.gcounts={};((g&&g.data)||[]).forEach(x=>{S.gcounts[x.event]=Number(x.n);});
@@ -1330,15 +1399,23 @@ async function loadSocial(rows){
     S.goingMe=new Set(((me&&me.data)||[]).map(x=>x.event));
   }catch(e){S.socialOff=true;}
 }
-async function toggleFollow(h){
-  const A=S.auth,uid=h.hostUid;if(!uid||!A.user)return;
+async function toggleFollowUid(uid,name){
+  const A=S.auth;if(!uid||!A.user){toast('Sign in to follow people');S.tab='profile';renderAll();return;}
   const on=S.fol.has(uid);
-  if(on){S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}else{S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}
+  if(on){S.fol.delete(uid);S.friends.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}else{S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}
   renderAll();
   const r=on?await SB.from('follows').delete().eq('follower_id',A.user.id).eq('followed_id',uid):await SB.from('follows').insert({follower_id:A.user.id,followed_id:uid});
-  if(r&&r.error){if(on){S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}else{S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}renderAll();toast('Could not update. Try again.');}
-  else toast(on?'Unfollowed '+h.name:'Following '+h.name);
+  if(r&&r.error){if(on){S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}else{S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}renderAll();toast('Could not update. Try again.');return;}
+  await loadFriends();
+  toast(on?'Unfollowed '+name:(S.friends.has(uid)?'You and '+name+' are friends':'Following '+name));
+  renderAll();
 }
+const toggleFollow=h=>toggleFollowUid(h.hostUid,h.name);
+async function loadFriends(){
+  if(!SB||!S.auth.user)return;
+  try{const r=await SB.rpc('my_friends');if(r&&!r.error)S.friends=new Set((r.data||[]).map(x=>x.friend_id));}catch(e){}
+}
+const followLabel=uid=>S.friends.has(uid)?'Friends':S.fol.has(uid)?'Following':'Follow';
 async function toggleGoing(ev){
   const A=S.auth;if(!SB||!A.user||!EVENTS[ev])return;
   const on=S.goingMe.has(ev);
@@ -1357,7 +1434,7 @@ const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
 const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ghost act" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',18)}<span>Instagram</span></button>`:'';
 const actRow=(...b)=>{const x=b.filter(Boolean).join('');return x?`<div class="actions">${x}</div>`:'';};
 function setRole(r){
-  if(S.pingOn)stopPing();
+  if(S.pingOn)stopPing();if(S.fshare)stopFShare();
   S.role=r;S.tab=r==='host'?'home':'tonight';
   try{localStorage.setItem('pu_role',r);}catch(e){}
   if(SB&&S.auth.user){SB.from('profiles').update({role:r}).eq('id',S.auth.user.id).then(()=>{}).catch(()=>{});if(S.auth.profile)S.auth.profile.role=r;}
@@ -1407,7 +1484,7 @@ async function loadMyPosts(){
   }catch(e){S.postsOff=true;}
   if(!S.sheet&&S.tab==='profile')renderView();
 }
-async function addPost(file){
+async function addPost(file,caption){
   const A=S.auth;if(!file)return;
   if(!SB||!A.user||!A.profile){toast('Sign in and create your profile first');S.tab='profile';renderAll();return;}
   const isV=/^video\//.test(file.type||''),isI=/^image\//.test(file.type||'');
@@ -1421,10 +1498,10 @@ async function addPost(file){
     const path=A.user.id+'/p_'+Date.now();
     const up=await SB.storage.from('vlogs').upload(path,body,{contentType:ct||'video/mp4'});
     if(up.error)throw new Error(/mime|type/i.test(up.error.message||'')?'Photos need the step 15 database update.':(up.error.message||'Upload failed'));
-    const ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video'});
+    const ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video',caption:(caption||'').slice(0,140)||null});
     if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Posting needs the step 15 database update.');}
-    toast('Added to your story. It disappears in 24 hours.');
-    await loadMyPosts();loadLive();
+    toast('Posted to Reels. It disappears in 24 hours.');
+    await loadMyPosts();await loadLive();S.reelsAt=0;loadReels();
   }catch(e){toast((e&&e.message)||'Could not post that');}
   S.postBusy=false;renderView();
 }
@@ -1449,14 +1526,25 @@ async function setCarPhoto(file){
   }catch(e){toast((e&&e.message)||'Could not save the photo');}
   S.postBusy=false;renderView();
 }
+async function saveCar(){
+  const A=S.auth;if(!SB||!A.user||!A.profile)return;
+  const m=(($('#car-m')||{}).value||'').trim().slice(0,60),c=(($('#car-c')||{}).value||'').trim().slice(0,30);
+  if(m.length<2||c.length<2){toast('Add your car model and its colour');return;}
+  const u=await SB.from('profiles').update({car:m,car_color:c}).eq('id',A.user.id);
+  if(u.error){toast('Saving your car needs the step 17 database update.');return;}
+  A.profile.car=m;A.profile.car_color=c;toast('Car saved');renderView();
+}
 function myPageHTML(){
   const A=S.auth;if(!SB||!A.user||!A.profile)return '';
   if(!S.myPostsLoaded){S.myPostsLoaded=true;setTimeout(loadMyPosts,0);}
   const P=S.myPosts||[],host=S.role==='host';
   return `<section class="panel"><h3>${host?'Your page':'Your day'}</h3>
     <p class="note">${host?'Riders open your page from your plan. It shows your car, what your day or night looks like right now, and your Instagram. Story posts disappear after 24 hours.':'Share how your day or night is going. Hosts you send a ride request to can see it, along with your Instagram. Posts disappear after 24 hours.'}</p>
+    ${host?`<div class="rule" style="${carOk()?'':'background:var(--accent-soft)'}">${ic(carOk()?'check':'alert',18)}<span style="flex:1">${carOk()?'Your car is set. Riders see it on your page.':'Required: add your car, its colour and a photo before you can post a plan.'}</span></div>
+    <div class="two"><label class="fld" for="car-m">Car model<input class="inp" id="car-m" maxlength="60" placeholder="e.g. Mercedes S-Class" value="${esc(A.profile.car||'')}"></label><label class="fld" for="car-c">Colour<input class="inp" id="car-c" maxlength="30" placeholder="e.g. Black" value="${esc(A.profile.car_color||'')}"></label></div>
+    <button class="btn ghost sm" data-act="carsave">Save my car</button>`:''}
     ${host&&S.carUrl?`<img class="hpcar" src="${esc(S.carUrl)}" alt="Your car">`:''}
-    <div class="actions">${host?`<label class="btn ghost act" style="cursor:pointer">${ic('image',18)}<span>${S.carUrl?'Change car photo':'Add a car photo'}</span><input type="file" accept="image/*" data-f="carFile" hidden></label>`:''}
+    <div class="actions">${host?`<label class="btn ghost act" style="cursor:pointer">${ic('image',18)}<span>${S.carUrl?'Change car photo':'Add a car photo (required)'}</span><input type="file" accept="image/*" data-f="carFile" hidden></label>`:''}
     <label class="btn act" style="cursor:pointer" ${S.postBusy?'aria-disabled="true"':''}>${ic('plus',18)}<span>${S.postBusy?'Uploading…':'Add to your story'}</span><input type="file" accept="image/*,video/*" data-f="postFile" hidden></label></div>
     ${P.map(p=>`<div class="mypost"><div class="hpp">${p.kind==='image'?`<img src="${esc(p.url)}" alt="">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}</div><div style="flex:1;min-width:0"><b>${p.kind==='image'?'Photo':'Video'}</b><div class="note">${leftTxt(p.expires)}</div></div><button class="chip" data-act="postdel" data-id="${p.id}">Delete</button></div>`).join('')}
     ${S.postsOff?'<p class="note" style="color:var(--bad)">Posts need the step 15 and 16 database updates.</p>':''}</section>`;
@@ -1477,6 +1565,118 @@ function sheetRiderDay(){
   ${R.loading?'<p class="muted">Loading…</p>':(R.posts.length?R.posts.map(p=>`<div class="panel" style="padding:8px">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" style="width:100%;border-radius:10px;display:block">`:`<video controls playsinline preload="metadata" style="width:100%;border-radius:10px" src="${esc(p.url)}"></video>`}<p class="note">${p.caption?esc(p.caption)+' · ':''}${leftTxt(p.expires)}</p></div>`).join(''):`<p class="note">${esc(first)} has not shared anything in the last 24 hours.</p>`)}
   ${igOk(R.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(R.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(R.ig)}/embed"></iframe></section>`:''}
   <button class="btn" data-act="close">Close</button>`;
+}
+/* ---------- reels, user profiles, composer ---------- */
+const carOk=()=>{const p=S.auth.profile;return !!(p&&p.car&&p.car_color&&p.car_photo_path);};
+function sampleReels(){
+  const caps=['Friday with the boys','Dinner first, always','Rooftop season','Table is reserved','Night drive by the water','Big group, big energy'];
+  const r=hosts.filter(h=>h.id!=='me').slice(0,4).map((h,i)=>({id:'s_'+h.id,sample:true,uid:null,name:h.name,role:'host',car:h.color+' '+h.car,caption:caps[i%caps.length]+' · '+h.vibe.join(', '),hue:hue(h.name),planId:h.id}));
+  const riders=[['Efua K.','Brunch in Osu, then the beach for golden hour'],['Ama O.','Getting ready for tonight. Who is going to Neon Nights?'],['Nana A.','Labadi vibes all day']];
+  riders.forEach((x,i)=>r.push({id:'sr_'+i,sample:true,uid:null,name:x[0],role:'rider',caption:x[1],hue:hue(x[0])}));
+  return r;
+}
+async function loadReels(){
+  const out=[];
+  S.live.forEach(h=>(h.posts||[]).forEach(p=>out.push({id:'r_'+p.id,uid:h.hostUid,name:h.name,role:'host',photo:h.crew&&h.crew[0]&&h.crew[0][4],kind:p.kind,url:p.url,caption:p.caption,created:p.created||p.expires,expires:p.expires,planId:h.id,car:h.color+' '+h.car})));
+  if(SB&&S.auth.user){
+    try{
+      const liveIds=new Set(S.live.map(h=>h.hostUid));
+      const ids=[...S.fol].filter(id=>!liveIds.has(id));
+      if(ids.length){
+        const [pq,pr]=await Promise.all([
+          SB.from('posts').select('*').in('host_id',ids).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(40),
+          SB.from('profiles').select('id,first_name,age,photo_path').in('id',ids)]);
+        const rows=(pq&&!pq.error&&pq.data)||[],people={};((pr&&pr.data)||[]).forEach(x=>{people[x.id]=x;});
+        const u=await signVlogs(rows.map(x=>x.path));
+        let ph={};const pp=Object.values(people).map(x=>x.photo_path).filter(Boolean);
+        if(pp.length){try{const a=await SB.storage.from('avatars').createSignedUrls(pp,3600);((a&&a.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)ph[x.path]=x.signedUrl;});}catch(e){}}
+        rows.filter(x=>u[x.path]&&people[x.host_id]).forEach(x=>{const pe=people[x.host_id];out.push({id:'r_'+x.id,uid:x.host_id,name:pe.first_name,role:'rider',photo:ph[pe.photo_path]||null,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at});});
+      }
+    }catch(e){}
+  }
+  out.sort((a,b)=>new Date(b.created)-new Date(a.created));
+  S.reels=out.length>=3?out:[...out,...sampleReels()];
+  if(S.tab==='reels'&&!S.sheet)renderView();
+}
+function reelHTML(r){
+  const isH=r.role==='host',h=r.planId?hostById(r.planId):null,live=!!(h&&h.real);
+  const media=r.sample?`<div class="rbg" style="background:linear-gradient(160deg,hsl(${r.hue} 55% 32%),hsl(${(r.hue+50)%360} 60% 14%))">${esc(r.caption)}</div>`:(r.kind==='image'?`<img src="${esc(r.url)}" alt="" loading="lazy">`:`<video loop playsinline muted preload="metadata" src="${esc(r.url)}"></video>`);
+  const fol=r.uid&&SB&&S.auth.user&&r.uid!==(S.auth.user&&S.auth.user.id);
+  const photo=r.photo?`<span class="av" style="width:42px;height:42px;border:2px solid #fff"><img class="p" src="${esc(r.photo)}" alt=""></span>`:av(r.name,42);
+  return `<section class="reel" data-rid="${esc(r.id)}">${media}<div class="rshade"></div>
+  <div class="rtop"><span>${isH?'Host':'Rider'}</span>${r.sample?'<span>Sample</span>':''}${r.expires?`<span>${leftTxt(r.expires)}</span>`:''}</div>
+  <div class="rinfo"><button class="ruser" data-act="user" data-uid="${esc(r.uid||'')}" data-rid="${esc(r.id)}">${photo}<div><b>${esc(r.name)}</b>${isH&&r.car?`<div class="rmeta">${ic('car',12)} ${esc(r.car)}</div>`:''}</div></button>
+  ${r.sample?'':(r.caption?`<div class="rcap">${esc(r.caption)}</div>`:'')}</div>
+  <div class="rrail">${fol?`<div><button class="rbtn${S.fol.has(r.uid)?' on':''}" data-act="folu" data-uid="${esc(r.uid)}" data-name="${esc(r.name)}" aria-label="${followLabel(r.uid)} ${esc(r.name)}">${ic(S.fol.has(r.uid)?'check':'userplus',22)}</button><small>${followLabel(r.uid)}</small></div>`:''}
+  ${isH&&r.planId?`<div><button class="rbtn" data-act="open" data-id="${esc(r.planId)}" aria-label="See ${esc(r.name)}'s plan">${ic('route',22)}</button><small>Plan</small></div>`:''}</div></section>`;
+}
+function viewReels(){
+  if(!S.reelsAt||Date.now()-S.reelsAt>30000){S.reelsAt=Date.now();setTimeout(loadReels,0);}
+  const L=S.reels.length?S.reels:sampleReels();
+  return `<div class="reels" id="reels">${L.map(reelHTML).join('')}</div>`;
+}
+let reelIO=null;
+function reelsInit(){
+  const root=document.getElementById('reels');if(!root)return;
+  if(reelIO)reelIO.disconnect();
+  reelIO=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target.querySelector('video');if(!v)return;if(e.isIntersecting&&e.intersectionRatio>=.6){const p=v.play();if(p&&p.catch)p.catch(()=>{});}else v.pause();}),{root,threshold:[0,.6,1]});
+  root.querySelectorAll('.reel').forEach(r=>reelIO.observe(r));
+  root.addEventListener('click',e=>{const v=e.target.closest('video');if(v){v.muted=!v.muted;toast(v.muted?'Sound off':'Sound on');}});
+  if(S.reelFocus){const t=root.querySelector('[data-rid="'+S.reelFocus+'"]');S.reelFocus=null;if(t)t.scrollIntoView();}
+}
+async function openUser(uid,rid){
+  const cached=S.reels.find(x=>x.id===rid)||S.reels.find(x=>x.uid===uid);
+  if(!uid){const r=cached;S.up={sample:true,name:r?r.name:'Sample',role:r?r.role:'rider',car:r&&r.car,caption:r&&r.caption,posts:[]};openSheet('user');return;}
+  const h=S.live.find(x=>x.hostUid===uid);
+  S.up={uid,name:(cached&&cached.name)||(h&&h.name)||'',role:(cached&&cached.role)||(h?'host':'rider'),photo:(cached&&cached.photo)||null,loading:true,posts:[],planId:h?h.id:null};
+  openSheet('user');
+  try{
+    const pq=await SB.from('profiles').select('id,first_name,age,gender,photo_path,instagram,car,car_color,car_photo_path,role,vibes').eq('id',uid).maybeSingle();
+    const p=pq&&pq.data;
+    const postsQ=await SB.from('posts').select('*').eq('host_id',uid).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false});
+    const rows=(postsQ&&!postsQ.error&&postsQ.data)||[];
+    const paths=[...rows.map(x=>x.path),p&&p.car_photo_path].filter(Boolean),u=await signVlogs(paths);
+    let photo=S.up.photo;if(p&&p.photo_path){try{const a=await SB.storage.from('avatars').createSignedUrl(p.photo_path,3600);if(a&&a.data)photo=a.data.signedUrl;}catch(e){}}
+    try{const c=await SB.rpc('follower_counts',{host_ids:[uid]});((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});}catch(e){}
+    if(S.up&&S.up.uid===uid){
+      Object.assign(S.up,{loading:false,photo,name:p?p.first_name:S.up.name,age:p&&p.age,gender:p&&p.gender,ig:p&&p.instagram,role:(p&&p.role)||(h?'host':S.up.role),car:p&&p.car,carColor:p&&p.car_color,carUrl:p&&p.car_photo_path?(u[p.car_photo_path]||null):(h&&h.carUrl)||null,
+        posts:rows.filter(x=>u[x.path]).map(x=>({id:'r_'+x.id,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at}))});
+      if(!p&&h){S.up.car=h.car;S.up.carColor=h.color;S.up.ig=h.ig;S.up.age=h.crew[0][3];}
+    }
+  }catch(e){if(S.up)S.up.loading=false;}
+  if(S.sheet==='user')renderSheet();
+}
+function sheetUser(){
+  const U=S.up||{},first=(U.name||'').split(' ')[0]||'This person',isH=U.role==='host',me=S.auth.user&&U.uid===S.auth.user.id;
+  const photo=U.photo?`<span class="av" style="width:96px;height:96px"><img class="p" src="${esc(U.photo)}" alt=""></span>`:av(U.name||'?',96);
+  const n=S.fcounts[U.uid]||0,canF=!U.sample&&U.uid&&!me&&SB;
+  const car=isH?`${U.carUrl?`<img class="hpcar" src="${esc(U.carUrl)}" alt="${esc(first)}'s car">`:`<div class="hpcar" style="display:grid;place-items:center"><span class="note">No car photo yet</span></div>`}
+    ${(U.car||U.carColor)?`<div class="row" style="justify-content:flex-start;gap:8px">${ic('car',18)}<b>${esc([U.carColor,U.car].filter(Boolean).join(' '))}</b></div>`:(U.sample&&U.car?`<div class="row" style="justify-content:flex-start;gap:8px">${ic('car',18)}<b>${esc(U.car)}</b></div>`:'')}`:'';
+  return `<div class="sheet-h"><div></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <div class="uhead">${photo}<h2 style="margin:4px 0 0">${esc(U.name||'')}${U.age?', '+U.age:''}</h2>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center"><span class="tag">${isH?'Host':'Rider'}</span>${S.friends.has(U.uid)?'<span class="tag" style="background:var(--good);color:var(--bg)">Friends</span>':''}${U.sample?'<span class="tag">Sample</span>':''}</div></div>
+  ${U.sample?'':`<div class="ucounts"><div><b>${n}</b><span>Followers</span></div><div><b>${U.posts?U.posts.length:0}</b><span>Posts today</span></div></div>`}
+  <div class="actions">${canF?`<button class="btn act${S.fol.has(U.uid)?' ghost':''}" data-act="folu" data-uid="${esc(U.uid)}" data-name="${esc(U.name)}">${ic(S.fol.has(U.uid)?'check':'userplus',18)}<span>${followLabel(U.uid)}</span></button>`:''}${U.planId?`<button class="btn act" data-act="open" data-id="${esc(U.planId)}">${ic('route',18)}<span>See the plan</span></button>`:''}</div>
+  ${S.friends.has(U.uid)?'':(canF?`<p class="note">When you follow each other you become friends and can see when each other is nearby.</p>`:'')}
+  ${car}
+  ${U.loading?'<p class="muted">Loading…</p>':(U.posts&&U.posts.length?`<section class="panel"><div class="row"><h3>${isH?'Right now':'Her day'}</h3><span class="note">Gone after 24 hours</span></div><div class="ugrid">${U.posts.map(p=>`<button class="hpp" data-act="userpost" data-rid="${esc(p.id)}" aria-label="Watch post">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" loading="lazy">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}<span>${leftTxt(p.expires)}</span></button>`).join('')}</div></section>`:(U.sample?`<p class="note">${esc(U.caption||'')}</p><p class="note">This is a sample profile. Real people appear here as they join.</p>`:`<p class="note">${esc(first)} has not posted in the last 24 hours.</p>`))}
+  ${igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(U.ig)}/embed"></iframe></section>`:''}`;
+}
+function openCompose(file){
+  if(!file)return;
+  if(!SB||!S.auth.user||!S.auth.profile){toast('Sign in and create your profile first');S.tab='profile';renderAll();return;}
+  const isV=/^video\//.test(file.type||''),isI=/^image\//.test(file.type||'');
+  if(!isV&&!isI){toast('Pick a photo or a video');return;}
+  if(S.cmp&&S.cmp.url){try{URL.revokeObjectURL(S.cmp.url);}catch(e){}}
+  S.cmp={file,url:URL.createObjectURL(file),kind:isI?'image':'video'};openSheet('compose');
+}
+function sheetCompose(){
+  const C=S.cmp||{};
+  return `<div class="sheet-h"><div><span class="eyebrow">New reel</span><h2>How is your day going?</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  ${C.kind==='image'?`<img class="cmpprev" src="${esc(C.url)}" alt="Preview">`:`<video class="cmpprev" src="${esc(C.url)}#t=0.1" controls playsinline preload="metadata"></video>`}
+  <label class="fld" for="cmp-cap">Say something (optional)<input class="inp" id="cmp-cap" maxlength="140" placeholder="Brunch in Osu, heading to Neon Nights later"></label>
+  <p class="note">Your reel disappears after 24 hours. People who follow you${S.role==='host'?' and riders near your plan':''} can see it.</p>
+  <button class="btn" data-act="cmppost">${ic('play',18)}Post reel</button>`;
 }
 function sheetIg(){
   const v=S.igView||{},handle=v.handle,name=v.name||'';
@@ -1631,7 +1831,7 @@ function renderSheet(){
   renderFab();
   const root=$('#sheetRoot');const old=root.querySelector('.sheet');const st=old?old.scrollTop:0;
   if(!S.sheet){root.innerHTML='';return;}
-  const T={riderday:sheetRiderDay,host:sheetHost,chat:sheetChat,ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
+  const T={user:sheetUser,compose:sheetCompose,riderday:sheetRiderDay,host:sheetHost,chat:sheetChat,ig:sheetIg,fb:sheetFb,detail:sheetDetail,vlog:sheetVlog,dev:sheetDev,checkin:sheetCheckin,sos:sheetSos,done:sheetDone};
   if(S.sheet==='vlog'&&(()=>{const h=hostById(S.vlog.id);return h&&(h.real||h.vlogLocal);})()){
     root.innerHTML=`<div class="scrim" style="padding:0;align-items:stretch" data-act="noop">${T.vlog()}</div>`;S._sheetKept=S.sheet;
     clearTimeout(S.storyT);
@@ -1651,16 +1851,17 @@ function renderSheet(){
   hydrateMaps();
 }
 function openSheet(n){S.sheet=n;renderSheet();}
-function closeSheet(){const was=S.sheet;clearTimeout(S.storyT);if(was==='detail'){stopLivePoll();LIVE=null;}if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
+function closeSheet(){const was=S.sheet;if(was==='compose'&&S.cmp&&S.cmp.url){try{URL.revokeObjectURL(S.cmp.url);}catch(e){}}clearTimeout(S.storyT);if(was==='detail'){stopLivePoll();LIVE=null;}if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}if(was==='chat')S.chat=null;S.sheet=null;S._sheetKept=null;renderSheet();if((was==='vlog'||was==='detail')&&S.role==='rider'&&S.tab==='tonight')renderView();}
 function renderView(){
   const v=$('#view');const key=(S.role||'x')+S.tab;const st=(v.dataset.key===key)?v.scrollTop:0;
-  const VM=S.role==='host'?{home:viewHostHome,post:viewHostPost,map:viewMap,profile:viewProfile,safety:viewSafety}:{tonight:viewTonight,map:viewMap,trip:viewTrip,safety:viewSafety,profile:viewProfile};
+  const VM=S.role==='host'?{home:viewHostHome,post:viewHostPost,reels:viewReels,map:viewMap,profile:viewProfile,safety:viewSafety}:{tonight:viewTonight,reels:viewReels,map:viewMap,trip:viewTrip,safety:viewSafety,profile:viewProfile};
   if(S.role&&!VM[S.tab])S.tab=S.role==='host'?'home':'tonight';
   const html=S.role?VM[S.tab]():viewGate();
   const narrow=!S.role||S.role==='host'&&S.tab!=='map'||S.tab==='safety'||S.tab==='profile'||(S.tab==='trip'&&!(S.req&&S.req.status==='active'));
-  v.innerHTML=narrow?`<div class="narrow">${html}</div>`:html;
+  v.classList.toggle('rv',S.tab==='reels'&&!!S.role);
+  v.innerHTML=(narrow&&S.tab!=='reels')?`<div class="narrow">${html}</div>`:html;
   v.dataset.key=key;v.scrollTop=st;
-  hydrateMaps();renderFab();
+  hydrateMaps();renderFab();if(S.tab==='reels')reelsInit();
 }
 function renderAll(){renderHdr();renderView();renderTabs();renderSheet();renderFab();}
 
@@ -1717,10 +1918,12 @@ function act(a,el,ev){
   const v=el.dataset.v,id=el.dataset.id;
   switch(a){
     case 'setrole':{setRole(v);break;}
+    case 'fabtoggle':S.fabOpen=!S.fabOpen;renderFab();break;
     case 'pingtoggle':if(S.pingOn)stopPing();else startPing();break;
+    case 'fsharetoggle':if(S.fshare)stopFShare();else startFShare();break;
     case 'riderday':openRiderDay(id);break;
     case 'switchrole':{const to=S.role==='host'?'rider':'host';if(confirm('Switch to '+(to==='host'?'hosting':'riding')+'? You get a different experience for each.'))setRole(to);break;}
-    case 'tab':S.tab=v;renderAll();if(v==='tonight'||v==='map'||v==='home')loadLive();break;
+    case 'tab':{if(v==='post'&&S.role==='host'&&SB&&!carOk()){toast('Add your car and its photo first');S.tab='profile';S.fabOpen=false;renderAll();break;}S.fabOpen=false;}S.tab=v;renderAll();if(v==='tonight'||v==='map'||v==='home'||v==='reels')loadLive();break;
     case 'locate':if(!navigator.geolocation){toast('Location is not available on this device');break;}
       navigator.geolocation.getCurrentPosition(p=>{S.myLL=[p.coords.latitude,p.coords.longitude];renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
     case 'follow':{const h=hostById(id);if(h)toggleFollow(h);break;}
@@ -1731,7 +1934,12 @@ function act(a,el,ev){
     case 'open':S.draft=newDraft(id);openSheet('detail');break;
     case 'vlog':{const h=hostById(id);if(!h)break;seenSet(id);S.vlog={id,i:Math.max(0,Number(el.dataset.i)||0),url:h.vlogLocal||'',loading:false,err:''};openSheet('vlog');break;}
     case 'postdel':delPost(id);break;
-    case 'hostpage':{if(hostById(id)){S.hp=id;openSheet('host');}break;}
+    case 'hostpage':{const h=hostById(id);if(h&&h.hostUid)openUser(h.hostUid);break;}
+    case 'user':openUser(el.dataset.uid,el.dataset.rid);break;
+    case 'folu':toggleFollowUid(el.dataset.uid,el.dataset.name);break;
+    case 'userpost':{const rid=el.dataset.rid;if(!S.reels.find(x=>x.id===rid)){const U=S.up||{};S.reels.unshift({id:rid,uid:U.uid,name:U.name,role:U.role,photo:U.photo,...(U.posts||[]).find(p=>p.id===rid),planId:U.planId,car:[U.carColor,U.car].filter(Boolean).join(' ')});}S.reelFocus=rid;S.sheet=null;S.tab='reels';renderAll();break;}
+    case 'cmppost':{const C=S.cmp;if(!C)break;const cap=(($('#cmp-cap')||{}).value||'').trim();closeSheet();addPost(C.file,cap);break;}
+    case 'carsave':saveCar();break;
     case 'ig':{const h=hostById(id);if(h){S.igView={handle:h.ig,name:h.name};openSheet('ig');}break;}
     case 'igr':{const r=S.hostReqs.find(x=>x.id===id);if(r){S.igView={handle:r.ig,name:r.name};openSheet('ig');}break;}
     case 'vrestart':{const v=document.getElementById('storyVid');if(v){v.currentTime=0;v.play().catch(()=>{});}break;}
@@ -1864,7 +2072,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.datase
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){pickVlog(el.files&&el.files[0]);}
   else if(f==='carFile'){const fl=el.files&&el.files[0];el.value='';setCarPhoto(fl);}
-  else if(f==='postFile'){const fl=el.files&&el.files[0];el.value='';addPost(fl);}
+  else if(f==='postFile'){const fl=el.files&&el.files[0];el.value='';S.fabOpen=false;openCompose(fl);}
   else if(f==='v')S.hostDraft.v=Number(el.value);
   else if(f==='country'){S.hostDraft.country=el.value;S.tm=[];loadTm();renderView();}
   else if(f==='event'){
@@ -1892,8 +2100,8 @@ async function loadLive(){
   try{
     await loadEvents();
     const q=cols=>SB.from('plans').select('*, host:profiles!plans_host_id_fkey('+cols+')').eq('active',true).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(60);
-    let r=await q('first_name,age,gender,photo_path,instagram,car_photo_path');
-    if(r.error&&/car_photo_path/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path,instagram');
+    let r=await q('first_name,age,gender,photo_path,instagram,car_photo_path,car,car_color');
+    if(r.error&&/car_photo_path|car_color|\bcar\b/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path,instagram');
     if(r.error&&/instagram/i.test(r.error.message||''))r=await q('first_name,age,gender,photo_path');
     if(r.error){S.liveErr=r.error.message||'error';S.live=[];}
     else{
@@ -1906,7 +2114,7 @@ async function loadLive(){
       try{const pq=await SB.from('posts').select('*').in('host_id',hids).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});if(pq&&!pq.error)(pq.data||[]).forEach(x=>{(pr[x.host_id]=pr[x.host_id]||[]).push(x);});}catch(e){}
       const vurls=await signVlogs([...rows.map(p=>p.vlog_path),...rows.map(p=>p.host.car_photo_path),...Object.values(pr).flat().map(x=>x.path)].filter(Boolean));
       S.live=rows.map(p=>{const h=planToHost(p,urls[p.host.photo_path]);
-        h.posts=(pr[p.host_id]||[]).filter(x=>vurls[x.path]).map(x=>({id:x.id,kind:x.kind,url:vurls[x.path],caption:x.caption||'',expires:x.expires_at}));
+        h.posts=(pr[p.host_id]||[]).filter(x=>vurls[x.path]).map(x=>({id:x.id,kind:x.kind,url:vurls[x.path],caption:x.caption||'',expires:x.expires_at,created:x.created_at}));
         if(!h.posts.length&&p.vlog_path&&vurls[p.vlog_path])h.posts=[{id:'legacy',kind:'video',url:vurls[p.vlog_path],caption:'',expires:p.expires_at}];
         h.carUrl=p.host.car_photo_path?(vurls[p.host.car_photo_path]||null):null;
         const f=h.posts[0];h.vlogThumb=f?f.url:null;h.thumbKind=f?f.kind:'video';return h;});
@@ -1951,12 +2159,13 @@ async function pickVlog(file){
 async function publishReal(){
   const d=S.hostDraft,A=S.auth;
   if(!A.user||!A.profile){toast('Sign in and create your profile first');S.tab='profile';renderAll();return;}
+  if(!carOk()){toast('Add your car, its colour and a photo in Profile first');S.tab='profile';renderAll();return;}
   if(!d.plate.trim()){toast('Add your plate number');return;}
   if(!d.verified){toast('Confirm that everyone in the car passed the selfie check');return;}
   if(S.publishing)return;
   S.publishing=true;renderView();
   try{
-    const row={host_id:A.user.id,event:d.event,park_desc:d.park.trim().slice(0,120)||'Near the main gate',park_m:100,leaving_text:fmtTime(d.leaving),car:d.car.trim().slice(0,60),color:d.color.trim().slice(0,30),
+    const row={host_id:A.user.id,event:d.event,park_desc:d.park.trim().slice(0,120)||'Near the main gate',park_m:100,leaving_text:fmtTime(d.leaving),car:(A.profile.car||d.car).trim().slice(0,60),color:(A.profile.car_color||d.color).trim().slice(0,30),
       next_venue:d.v,house_offered:d.house,house_area:'Nearby',house_idx:Math.floor(Math.random()*HOUSES.length),seats:d.seats,friends_ok:d.friendsOk,friend_pref:d.friendPref,
       rules:d.rules.length?d.rules.slice():['Sober driver'],vibe:d.vibe.length?d.vibe.slice():['Chill'],
       crew:d.friends.map(f=>({n:(f.n||'Friend').trim().slice(0,40),g:f.g,a:Number(f.a)||27})),active:true};
