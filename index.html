@@ -967,7 +967,7 @@ async function loadFriendsNear(){
     const r=await SB.rpc('friends_nearby');if(r.error){S.friendsOff=true;return;}S.friendsOff=false;
     const rows=r.data||[],ph={},pp=rows.map(x=>x.photo_path).filter(Boolean);
     if(pp.length){try{const a=await SB.storage.from('avatars').createSignedUrls(pp,3600);((a&&a.data)||[]).forEach(x=>{if(x.signedUrl&&x.path)ph[x.path]=x.signedUrl;});}catch(e){}}
-    const list=rows.map(x=>({id:x.id,name:x.first_name,ll:[x.lat,x.lng],photo:ph[x.photo_path]||null,at:x.updated_at})),k=JSON.stringify(list.map(x=>[x.id,x.ll]));
+    const list=rows.filter(x=>x&&x.id&&x.first_name).map(x=>({id:x.id,name:x.first_name,ll:[x.lat,x.lng],photo:ph[x.photo_path]||null,at:x.updated_at})),k=JSON.stringify(list.map(x=>[x.id,x.ll]));
     if(k!==S.fnKey){S.fnKey=k;S.friendsNear=list;if(S.tab==='map'&&!S.sheet)renderView();}
   }catch(e){S.friendsOff=true;}
 }
