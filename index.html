@@ -1076,6 +1076,8 @@ function profilePanel(){
     <label class="fld" for="au-ig">Instagram (optional)<input class="inp" id="au-ig" data-pf="instagram" value="${esc(f.instagram||'')}" maxlength="30" placeholder="yourhandle" autocapitalize="none" autocomplete="off"></label>
     <p class="note" style="margin-top:-6px">Riders can scroll your public Instagram inside Pull Up. Leave it empty to keep it private.</p>
     <div><div class="eyebrow" style="margin-bottom:8px">Your vibe. Hosts who match show first.</div>${vibeChips(f.vibes,'pfvibe')}</div>
+    <div><div class="eyebrow" style="margin-bottom:6px">About you (optional)</div><p class="note" style="margin:0 0 8px">Helps people see what you have in common. Only people who can open your profile see this.</p>
+    <div class="two">${ABOUT.map(a=>`<label class="fld" for="ab-${a[0]}">${a[1]}<input class="inp" id="ab-${a[0]}" data-pf="${a[0]}" maxlength="60" placeholder="${a[2]}" value="${esc(f[a[0]]||'')}"></label>`).join('')}</div></div>
     ${A.err?`<p class="note" style="color:var(--bad)">${esc(A.err)}</p>`:''}
     <button class="btn" data-act="pfsave" ${A.saving?'disabled':''}>${A.saving?'Saving…':'Save profile'}</button>
     ${A.profile?`<button class="btn ghost" data-act="pfcancel">Cancel</button>`:`<button class="btn ghost" data-act="auout">Sign out</button>`}
@@ -1602,9 +1604,10 @@ function startNear(){
 }
 function sampleReels(){
   const caps=['Friday with the boys','Dinner first, always','Rooftop season','Table is reserved','Night drive by the water','Big group, big energy'];
-  const r=hosts.filter(h=>h.id!=='me').slice(0,4).map((h,i)=>({id:'s_'+h.id,sample:true,uid:null,name:h.name,role:'host',car:h.color+' '+h.car,caption:caps[i%caps.length]+' · '+h.vibe.join(', '),hue:hue(h.name),planId:h.id}));
-  const riders=[['Efua K.','Brunch in Osu, then the beach for golden hour'],['Ama O.','Getting ready for tonight. Who is going to Neon Nights?'],['Nana A.','Labadi vibes all day']];
-  riders.forEach((x,i)=>r.push({id:'sr_'+i,sample:true,uid:null,name:x[0],role:'rider',caption:x[1],hue:hue(x[0])}));
+  const AB=[{college:'KNUST',studied:'Mechanical Engineering',industry:'Finance',high_school:'Prempeh College',hometown:'Kumasi',languages:'English, Twi'},{college:'University of Ghana',studied:'Business Administration',industry:'Real estate',high_school:'Achimota School',hometown:'Accra',languages:'English, Ga'},{college:'Ashesi University',studied:'Computer Science',industry:'Tech',high_school:'St. Thomas Aquinas',hometown:'Accra',languages:'English, Ewe'},{college:'KNUST',studied:'Architecture',industry:'Design',high_school:'Mfantsipim',hometown:'Cape Coast',languages:'English, Fante'}];
+  const r=hosts.filter(h=>h.id!=='me').slice(0,4).map((h,i)=>({id:'s_'+h.id,sample:true,uid:null,name:h.name,role:'host',car:h.color+' '+h.car,caption:caps[i%caps.length]+' · '+h.vibe.join(', '),hue:hue(h.name),planId:h.id,about:AB[i%AB.length],vibes:h.vibe}));
+  const riders=[['Efua K.','Brunch in Osu, then the beach for golden hour',{college:'University of Ghana',studied:'Marketing',industry:'Fashion',high_school:'Wesley Girls',hometown:'Accra',languages:'English, Twi'},['Dinner','Beach']],['Ama O.','Getting ready for tonight. Who is going to Neon Nights?',{college:'KNUST',studied:'Pharmacy',industry:'Healthcare',high_school:'Holy Child',hometown:'Kumasi',languages:'English, Twi'},['Dinner','Chill','Music']],['Nana A.','Labadi vibes all day',{college:'Ashesi University',studied:'Computer Science',industry:'Tech',high_school:'Aburi Girls',hometown:'Accra',languages:'English, Ga'},['Beach','Chill']]];
+  riders.forEach((x,i)=>r.push({id:'sr_'+i,sample:true,uid:null,name:x[0],role:'rider',caption:x[1],hue:hue(x[0]),about:x[2],vibes:x[3]}));
   return r;
 }
 async function loadReels(){
@@ -1658,12 +1661,14 @@ function reelsInit(){
 }
 async function openUser(uid,rid){
   const cached=S.reels.find(x=>x.id===rid)||S.reels.find(x=>x.uid===uid);
-  if(!uid){const r=cached;S.up={sample:true,name:r?r.name:'Sample',role:r?r.role:'rider',car:r&&r.car,caption:r&&r.caption,posts:[]};openSheet('user');return;}
+  if(!uid){const r=cached;S.up={sample:true,name:r?r.name:'Sample',role:r?r.role:'rider',car:r&&r.car,caption:r&&r.caption,posts:[],about:r&&r.about,vibes:r&&r.vibes};openSheet('user');return;}
   const h=S.live.find(x=>x.hostUid===uid);
   S.up={uid,name:(cached&&cached.name)||(h&&h.name)||'',role:(cached&&cached.role)||(h?'host':'rider'),photo:(cached&&cached.photo)||null,loading:true,posts:[],planId:h?h.id:null};
   openSheet('user');
   try{
-    const pq=await SB.from('profiles').select('id,first_name,age,gender,photo_path,instagram,car,car_color,car_photo_path,role,vibes').eq('id',uid).maybeSingle();
+    const base='id,first_name,age,gender,photo_path,instagram,car,car_color,car_photo_path,role,vibes';
+    let pq=await SB.from('profiles').select(base+','+ABOUT.map(a=>a[0]).join(',')).eq('id',uid).maybeSingle();
+    if(pq&&pq.error)pq=await SB.from('profiles').select(base).eq('id',uid).maybeSingle();
     const p=pq&&pq.data;
     const postsQ=await SB.from('posts').select('*').eq('host_id',uid).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false});
     const rows=(postsQ&&!postsQ.error&&postsQ.data)||[];
@@ -1671,7 +1676,7 @@ async function openUser(uid,rid){
     let photo=S.up.photo;if(p&&p.photo_path){try{const a=await SB.storage.from('avatars').createSignedUrl(p.photo_path,3600);if(a&&a.data)photo=a.data.signedUrl;}catch(e){}}
     try{const c=await SB.rpc('follower_counts',{host_ids:[uid]});((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});}catch(e){}
     if(S.up&&S.up.uid===uid){
-      Object.assign(S.up,{loading:false,photo,vibes:p&&p.vibes,name:p?p.first_name:S.up.name,age:p&&p.age,gender:p&&p.gender,ig:p&&p.instagram,role:(p&&p.role)||(h?'host':S.up.role),car:p&&p.car,carColor:p&&p.car_color,carUrl:p&&p.car_photo_path?(u[p.car_photo_path]||null):(h&&h.carUrl)||null,
+      Object.assign(S.up,{loading:false,photo,vibes:p&&p.vibes,about:p?Object.fromEntries(ABOUT.map(a=>[a[0],p[a[0]]||''])):{},name:p?p.first_name:S.up.name,age:p&&p.age,gender:p&&p.gender,ig:p&&p.instagram,role:(p&&p.role)||(h?'host':S.up.role),car:p&&p.car,carColor:p&&p.car_color,carUrl:p&&p.car_photo_path?(u[p.car_photo_path]||null):(h&&h.carUrl)||null,
         posts:rows.filter(x=>u[x.path]).map(x=>({id:'r_'+x.id,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at}))});
       if(!p&&!h){try{const fc=await SB.rpc('friend_card',{uid});const c=fc&&fc.data&&fc.data[0];if(c){S.up.name=c.first_name;S.up.role=c.role||'rider';}}catch(e){}}
       if(!p&&h){S.up.car=h.car;S.up.carColor=h.color;S.up.ig=h.ig;S.up.age=h.crew[0][3];}
@@ -1679,9 +1684,35 @@ async function openUser(uid,rid){
   }catch(e){if(S.up)S.up.loading=false;}
   if(S.sheet==='user')renderSheet();
 }
+const ABOUT=[['high_school','High school','e.g. Achimota School'],['college','College or university','e.g. KNUST'],['studied','What you studied','e.g. Computer Science'],['industry','Industry you work in','e.g. Tech, Finance, Fashion'],['hometown','Hometown','e.g. Kumasi'],['languages','Languages','e.g. English, Twi, Ga']];
+const normT=v=>String(v||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const sameish=(a,b)=>{a=normT(a);b=normT(b);if(!a||!b)return false;return a===b||(a.length>=3&&b.length>=3&&(a.includes(b)||b.includes(a)));};
+function inCommon(U){
+  const me=S.auth.profile;if(!me||U.self)return [];
+  const out=[],A=U.about||{};
+  if(sameish(A.high_school,me.high_school))out.push('Both went to '+A.high_school);
+  if(sameish(A.college,me.college))out.push('Both at '+A.college);
+  if(sameish(A.studied,me.studied))out.push('Both studied '+A.studied);
+  if(sameish(A.industry,me.industry))out.push('Both work in '+A.industry);
+  if(sameish(A.hometown,me.hometown))out.push('Both from '+A.hometown);
+  const lt=v=>String(v||'').split(/[,/&]| and /i).map(normT).filter(x=>x.length>1),ml=lt(me.languages),sl=lt(A.languages).filter(x=>ml.includes(x));
+  if(sl.length)out.push('Both speak '+sl.map(x=>x[0].toUpperCase()+x.slice(1)).join(', '));
+  const mv=me.vibes||S.me.vibes||[],sv=(U.vibes||[]).filter(v=>mv.includes(v));
+  if(sv.length)out.push('Both into '+sv.join(', '));
+  return out;
+}
+function aboutLines(U){
+  const A=U.about||{},L=[];
+  if(A.college||A.studied)L.push(['Studied',[A.studied,A.college&&'at '+A.college].filter(Boolean).join(' ')]);
+  if(A.high_school)L.push(['High school',A.high_school]);
+  if(A.industry)L.push(['Works in',A.industry]);
+  if(A.hometown)L.push(['From',A.hometown]);
+  if(A.languages)L.push(['Speaks',A.languages]);
+  return L;
+}
 function selfUser(){
   const A=S.auth,p=A.profile||{};
-  return {uid:A.user&&A.user.id,self:true,name:p.first_name||S.me.name,age:p.age||S.me.age,gender:p.gender||S.me.gender,role:S.role,photo:S.me.photo||null,ig:p.instagram||'',car:p.car,carColor:p.car_color,carUrl:S.carUrl||null,vibes:p.vibes||S.me.vibes||[],
+  return {uid:A.user&&A.user.id,self:true,name:p.first_name||S.me.name,age:p.age||S.me.age,gender:p.gender||S.me.gender,role:S.role,photo:S.me.photo||null,ig:p.instagram||'',car:p.car,carColor:p.car_color,carUrl:S.carUrl||null,vibes:p.vibes||S.me.vibes||[],about:Object.fromEntries(ABOUT.map(a=>[a[0],p[a[0]]||''])),
     posts:(S.myPosts||[]).map(x=>({id:'r_'+x.id,kind:x.kind,url:x.url,caption:x.caption,expires:x.expires})),planId:(S.posted&&S.posted.real)?S.posted.id:null};
 }
 function igProfileHTML(U){
@@ -1695,18 +1726,22 @@ function igProfileHTML(U){
   const vibes=(U.vibes&&U.vibes.length)?`<div class="chips">${U.vibes.map(v=>`<span class="chip">${esc(v)}</span>`).join('')}</div>`:'';
   const btns=U.self?`<div class="igp-btns"><button class="btn ghost" data-act="auedit">Edit profile</button><button class="btn ghost" data-act="shareme">Share profile</button></div>`
     :`<div class="igp-btns">${canF?`<button class="btn${S.fol.has(U.uid)?' ghost':''}" data-act="folu" data-uid="${esc(U.uid)}" data-name="${esc(U.name)}">${followLabel(U.uid)}</button>`:''}${U.planId?`<button class="btn" data-act="open" data-id="${esc(U.planId)}">See the plan</button>`:''}</div>`;
-  const showIG=isH||U.self||friend;
+  const showIG=true,common=inCommon(U),lines=aboutLines(U);
   const posts=U.loading?'<p class="muted">Loading…</p>':(P.length?`<div class="ugrid">${P.map(p=>`<button class="hpp" data-act="userpost" data-rid="${esc(p.id)}" aria-label="Watch post">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" loading="lazy">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}<span>${leftTxt(p.expires)}</span></button>`).join('')}</div>`
     :(U.sample?`<p class="note">${esc(U.caption||'')}</p><p class="note">This is a sample profile. Real people appear here as they join.</p>`:`<p class="note">${U.self?'You have not posted today. Tap + to share how your day is going.':esc(first)+' has not posted in the last 24 hours.'}</p>`));
   return `<div class="igp-head">${photo}${stats}</div>
   <div><div class="igp-name">${esc(U.name||'')}${U.age?', '+U.age:''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="tag">${isH?'Host':'Rider'}</span>${friend?'<span class="tag" style="background:var(--good);color:var(--bg)">Friends</span>':''}${U.sample?'<span class="tag">Sample</span>':''}${U.planId?'<span class="tag" style="background:var(--good);color:var(--bg)">Live now</span>':''}</div></div>
   ${isH?'':vibes}${btns}
+  ${common.length?`<section class="panel" style="border-color:var(--accent)"><h3>You have this in common</h3><div class="chips">${common.map(c=>`<span class="chip" style="background:var(--accent-soft);border-color:var(--accent)">${esc(c)}</span>`).join('')}</div></section>`:''}
+  ${(lines.length||U.self)?`<section class="panel"><div class="row"><h3>${U.self?'About you':'About '+esc(first)}</h3>${U.self?'<button class="chip" data-act="auedit">Edit</button>':''}</div>
+    ${lines.length?`<ul class="list">${lines.map(l=>`<li><span class="note" style="min-width:86px">${l[0]}</span><b>${esc(l[1])}</b></li>`).join('')}</ul>`:'<p class="note">Add where you studied and what you do, so people can find what you have in common.</p>'}</section>`:''}
   ${canF&&!friend?`<p class="note">Follow each other to become friends. Friends can see when each other is nearby.</p>`:''}
   ${isH?carBlock:''}
   <section class="panel"><div class="row"><h3>${U.self?(isH?'Your night':'Your day'):isH?'Right now':man?'His day':'Her day'}</h3><span class="note">Gone after 24 hours</span></div>${posts}</section>
-  ${showIG&&igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(U.ig)}/embed"></iframe></section>`
-    :(!showIG&&igOk(U.ig)?`<div class="igp-lock">${ic('lock',16)}<span>${esc(first)} shares Instagram with friends.</span></div>`:'')}`;
+  ${igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(U.ig)}/embed"></iframe>
+    <p class="note">${esc(first)}'s public Instagram. Private accounts do not show, and Instagram may block the preview on some browsers.</p><a class="btn ghost sm" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(U.ig)}/" target="_blank" rel="noopener noreferrer">Open in Instagram</a></section>`
+    :(U.sample?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="tag">Sample</span></div><div class="ugrid">${[0,1,2,3,4,5].map(i=>`<div class="hpp" style="background:linear-gradient(135deg,hsl(${(hue(U.name||'x')+i*35)%360} 50% 38%),hsl(${(hue(U.name||'x')+i*35+60)%360} 55% 18%));border-color:transparent"></div>`).join('')}</div><p class="note">When ${esc(first)} links an Instagram account, you can scroll it here.</p></section>`:'')}`;
 }
 function sheetUser(){
   const U=S.up||{};
@@ -2301,7 +2336,7 @@ async function authPw(create){
 async function authOut(){
   await SB.auth.signOut();
   const A=S.auth;A.user=null;A.profile=null;A.editing=false;A.status='idle';A.file=null;A.preview='';A.err='';
-  A.form={first_name:'',age:'',gender:'Woman',vibes:[],instagram:''};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};S.myReqs={};S.hostReqs=[];S.fol=new Set();S.posted=S.posted&&S.posted.real?null:S.posted;renderAll();loadLive();
+  A.form={first_name:'',age:'',gender:'Woman',vibes:[],instagram:'',high_school:'',college:'',studied:'',industry:'',hometown:'',languages:''};S.me={...DEMO_ME,vibes:DEMO_ME.vibes.slice()};S.myReqs={};S.hostReqs=[];S.fol=new Set();S.posted=S.posted&&S.posted.real?null:S.posted;renderAll();loadLive();
 }
 async function loadProfile(){
   const A=S.auth;if(!A.user)return;
@@ -2313,7 +2348,7 @@ async function loadProfile(){
     let url='';
     if(data.photo_path){const r=await SB.storage.from('avatars').createSignedUrl(data.photo_path,3600);url=(r&&r.data&&r.data.signedUrl)||'';}
     S.me={name:data.first_name,age:data.age,gender:data.gender,vibes:data.vibes||[],photo:url,real:true,shows:null};
-    A.form={first_name:data.first_name,age:String(data.age),gender:data.gender,vibes:(data.vibes||[]).slice(),instagram:data.instagram||''};
+    A.form={first_name:data.first_name,age:String(data.age),gender:data.gender,vibes:(data.vibes||[]).slice(),instagram:data.instagram||'',...Object.fromEntries(ABOUT.map(a=>[a[0],data[a[0]]||'']))};
     A.editing=false;
   }else{A.editing=true;S.tab='profile';}
   renderAll();
@@ -2344,7 +2379,12 @@ async function saveProfile(){
     const ig=(f.instagram||'').trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
     if(ig&&!igOk(ig))throw new Error('That Instagram name looks wrong. Use letters, numbers, dots and underscores only.');
     const row={id:A.user.id,first_name:f.first_name.trim(),age,gender:f.gender,vibes:f.vibes,photo_path:path,updated_at:new Date().toISOString()};
-    let res=await SB.from('profiles').upsert({...row,instagram:ig||null});
+    const about={};ABOUT.forEach(a=>{about[a[0]]=((f[a[0]]||'').trim().slice(0,60))||null;});
+    let res=await SB.from('profiles').upsert({...row,...about,instagram:ig||null});
+    if(res.error&&new RegExp(ABOUT.map(a=>a[0]).join('|'),'i').test(res.error.message||'')){
+      if(ABOUT.some(a=>about[a[0]]))throw new Error('Saving these details needs the step 19 database update. Run supabase-step19-about.sql in Supabase.');
+      res=await SB.from('profiles').upsert({...row,instagram:ig||null});
+    }
     if(res.error&&/instagram/i.test(res.error.message||'')){
       if(ig)throw new Error('Instagram needs the step 5 database update first. Run supabase-step5-instagram.sql in Supabase.');
       res=await SB.from('profiles').upsert(row);
