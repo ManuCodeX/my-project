@@ -154,6 +154,7 @@ p{margin:0}
 .view.rv{padding:0;overflow:hidden}
 .view.rv>*{max-width:520px}
 .view.rv>.reels{flex:1;min-height:0}
+.rfilt{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--bg);flex:none}.rfilt .chip{flex:none;white-space:nowrap}.revt{background:var(--accent)!important;color:var(--accent-ink);border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
 .reels{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;background:#000;overscroll-behavior:contain}
 .reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;background:#000;color:#fff;overflow:hidden}
 .reel>img,.reel>video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -795,7 +796,7 @@ function mapSVG(o){
 /* ---------- state ---------- */
 try{window.__pendingU=(new URLSearchParams(location.search).get('u')||'').match(/^[0-9a-f-]{36}$/i)?new URLSearchParams(location.search).get('u'):null;}catch(e){window.__pendingU=null;}
 const S={
-  role:roleInit(),tab:roleInit()==='host'?'home':'tonight',event:'a',group:99,myReqs:{},hostReqs:[],reqOff:false,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},onlyFol:false,socialOff:false,
+  role:roleInit(),tab:roleInit()==='host'?'home':'tonight',event:'a',group:99,myReqs:{},hostReqs:[],reqOff:false,fol:new Set(),fcounts:{},goingMe:new Set(),gcounts:{},postEv:{},reelEv:'',onlyFol:false,socialOff:false,
   pendingU:window.__pendingU,range:3,friends:new Set(),reels:[],sheet:null,draft:null,req:null,trip:null,rating:0,
   settings:{threshold:0.5,checkin:true,share:{}},
   me:{name:'Adjoa',age:24,gender:'Woman',shows:97,vibes:['Dinner','Chill','Music']},
@@ -1506,7 +1507,7 @@ async function loadMyPosts(){
   }catch(e){S.postsOff=true;}
   if(!S.sheet&&S.tab==='profile')renderView();
 }
-async function addPost(file,caption){
+async function addPost(file,caption,evId){
   const A=S.auth;if(!file)return;
   if(!SB||!A.user||!A.profile){toast('Sign in and create your profile first');S.tab='profile';renderAll();return;}
   const isV=/^video\//.test(file.type||''),isI=/^image\//.test(file.type||'');
@@ -1520,7 +1521,13 @@ async function addPost(file,caption){
     const path=A.user.id+'/p_'+Date.now();
     const up=await SB.storage.from('vlogs').upload(path,body,{contentType:ct||'video/mp4'});
     if(up.error)throw new Error(/mime|type/i.test(up.error.message||'')?'Photos need the step 15 database update.':(up.error.message||'Upload failed'));
-    const ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video',caption:(caption||'').slice(0,140)||null});
+    const evOk=evId&&EVENTS[evId]?evId:null;
+    let ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video',caption:(caption||'').slice(0,140)||null,...(evOk?{event_id:evOk}:{})});
+    if(ins.error&&evOk&&/event_id/i.test(ins.error.message||'')){ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:isI?'image':'video',caption:(caption||'').slice(0,140)||null});toast('Posted without the event tag. Run supabase-step20-event-tag.sql to turn tags on.');}
+    else if(!ins.error&&evOk){
+      if(!S.goingMe.has(evOk)){S.goingMe.add(evOk);S.gcounts[evOk]=(S.gcounts[evOk]||0)+1;}
+      SB.from('going').upsert({user_id:A.user.id,event:evOk,expires_at:new Date(Date.now()+12*3600*1000).toISOString()}).then(()=>{},()=>{});
+    }
     if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Posting needs the step 15 database update.');}
     toast('Posted to Reels. It disappears in 24 hours.');
     await loadMyPosts();await loadLive();S.reelsAt=0;loadReels();
@@ -1605,9 +1612,9 @@ function startNear(){
 function sampleReels(){
   const caps=['Friday with the boys','Dinner first, always','Rooftop season','Table is reserved','Night drive by the water','Big group, big energy'];
   const AB=[{college:'KNUST',studied:'Mechanical Engineering',industry:'Finance',high_school:'Prempeh College',hometown:'Kumasi',languages:'English, Twi'},{college:'University of Ghana',studied:'Business Administration',industry:'Real estate',high_school:'Achimota School',hometown:'Accra',languages:'English, Ga'},{college:'Ashesi University',studied:'Computer Science',industry:'Tech',high_school:'St. Thomas Aquinas',hometown:'Accra',languages:'English, Ewe'},{college:'KNUST',studied:'Architecture',industry:'Design',high_school:'Mfantsipim',hometown:'Cape Coast',languages:'English, Fante'}];
-  const r=hosts.filter(h=>h.id!=='me').slice(0,4).map((h,i)=>({id:'s_'+h.id,sample:true,uid:null,name:h.name,role:'host',car:h.color+' '+h.car,caption:caps[i%caps.length]+' · '+h.vibe.join(', '),hue:hue(h.name),planId:h.id,about:AB[i%AB.length],vibes:h.vibe}));
+  const r=hosts.filter(h=>h.id!=='me').slice(0,4).map((h,i)=>({id:'s_'+h.id,sample:true,uid:null,name:h.name,role:'host',car:h.color+' '+h.car,caption:caps[i%caps.length]+' · '+h.vibe.join(', '),hue:hue(h.name),planId:h.id,about:AB[i%AB.length],vibes:h.vibe,event:h.event&&EVENTS[h.event]?h.event:'a'}));
   const riders=[['Efua K.','Brunch in Osu, then the beach for golden hour',{college:'University of Ghana',studied:'Marketing',industry:'Fashion',high_school:'Wesley Girls',hometown:'Accra',languages:'English, Twi'},['Dinner','Beach']],['Ama O.','Getting ready for tonight. Who is going to Neon Nights?',{college:'KNUST',studied:'Pharmacy',industry:'Healthcare',high_school:'Holy Child',hometown:'Kumasi',languages:'English, Twi'},['Dinner','Chill','Music']],['Nana A.','Labadi vibes all day',{college:'Ashesi University',studied:'Computer Science',industry:'Tech',high_school:'Aburi Girls',hometown:'Accra',languages:'English, Ga'},['Beach','Chill']]];
-  riders.forEach((x,i)=>r.push({id:'sr_'+i,sample:true,uid:null,name:x[0],role:'rider',caption:x[1],hue:hue(x[0]),about:x[2],vibes:x[3]}));
+  riders.forEach((x,i)=>r.push({id:'sr_'+i,sample:true,uid:null,name:x[0],role:'rider',caption:x[1],hue:hue(x[0]),about:x[2],vibes:x[3],event:i%2?'b':'a'}));
   return r;
 }
 async function loadReels(){
@@ -1629,6 +1636,7 @@ async function loadReels(){
       }
     }catch(e){}
   }
+  if(SB&&S.auth.user){try{const q=await SB.from('posts').select('id,event_id').not('event_id','is',null).gt('expires_at',new Date().toISOString());if(q&&!q.error){S.postEv={};(q.data||[]).forEach(x=>{S.postEv['r_'+x.id]=x.event_id;});}}catch(e){}}
   out.sort((a,b)=>new Date(b.created)-new Date(a.created));
   S.reels=out.length>=3?out:[...out,...sampleReels()];
   if(S.tab==='reels'&&!S.sheet)renderView();
@@ -1638,8 +1646,10 @@ function reelHTML(r){
   const media=r.sample?`<div class="rbg" style="background:linear-gradient(160deg,hsl(${r.hue} 55% 32%),hsl(${(r.hue+50)%360} 60% 14%))">${esc(r.caption)}</div>`:(r.kind==='image'?`<img src="${esc(r.url)}" alt="" loading="lazy">`:`<video loop playsinline muted preload="metadata" src="${esc(r.url)}"></video>`);
   const fol=r.uid&&SB&&S.auth.user&&r.uid!==(S.auth.user&&S.auth.user.id);
   const photo=r.photo?`<span class="av" style="width:42px;height:42px;border:2px solid #fff"><img class="p" src="${esc(r.photo)}" alt=""></span>`:av(r.name,42);
+  const evk=r.event||S.postEv[r.id],evo=evk&&EVENTS[evk];
   return `<section class="reel" data-rid="${esc(r.id)}">${media}<div class="rshade"></div>
   <div class="rtop"><span>${isH?'Host':'Rider'}</span>${r.sample?'<span>Sample</span>':''}${r.expires?`<span>${leftTxt(r.expires)}</span>`:''}</div>
+  ${evo?`<div style="position:absolute;left:14px;top:44px;z-index:3"><button class="revt rtop-chip" data-act="reelev" data-v="${esc(evk)}" style="padding:5px 11px;border-radius:999px">Will be at ${esc(evo.name)}${S.gcounts[evk]?' · '+S.gcounts[evk]+' going':''}</button></div>`:''}
   <div class="rinfo"><button class="ruser" data-act="user" data-uid="${esc(r.uid||'')}" data-rid="${esc(r.id)}">${photo}<div><b>${esc(r.name)}</b>${isH&&r.car?`<div class="rmeta">${ic('car',12)} ${esc(r.car)}</div>`:''}</div></button>
   ${r.sample?'':(r.caption?`<div class="rcap">${esc(r.caption)}</div>`:'')}</div>
   <div class="rrail">${fol?`<div><button class="rbtn${S.fol.has(r.uid)?' on':''}" data-act="folu" data-uid="${esc(r.uid)}" data-name="${esc(r.name)}" aria-label="${followLabel(r.uid)} ${esc(r.name)}">${ic(S.fol.has(r.uid)?'check':'userplus',22)}</button><small>${followLabel(r.uid)}</small></div>`:''}
@@ -1647,8 +1657,12 @@ function reelHTML(r){
 }
 function viewReels(){
   if(!S.reelsAt||Date.now()-S.reelsAt>30000){S.reelsAt=Date.now();setTimeout(loadReels,0);}
-  const L=S.reels.length?S.reels:sampleReels();
-  return `<div class="reels" id="reels">${L.map(reelHTML).join('')}</div>`;
+  const L0=S.reels.length?S.reels:sampleReels(),evOf=r=>r.event||S.postEv[r.id];
+  const evs=[...new Set(L0.map(evOf).filter(e=>e&&EVENTS[e]))];
+  if(S.reelEv&&!evs.includes(S.reelEv))S.reelEv='';
+  const L=S.reelEv?L0.filter(r=>evOf(r)===S.reelEv):L0;
+  const bar=evs.length?`<div class="rfilt"><button class="chip${S.reelEv?'':' on'}" data-act="reelev" data-v="">All reels</button>${evs.map(e=>`<button class="chip${S.reelEv===e?' on':''}" data-act="reelev" data-v="${esc(e)}">${esc(EVENTS[e].name)}${S.gcounts[e]?' · '+S.gcounts[e]+' going':''}</button>`).join('')}</div>`:'';
+  return `${bar}<div class="reels" id="reels">${L.map(reelHTML).join('')}</div>`;
 }
 let reelIO=null;
 function reelsInit(){
@@ -1661,7 +1675,7 @@ function reelsInit(){
 }
 async function openUser(uid,rid){
   const cached=S.reels.find(x=>x.id===rid)||S.reels.find(x=>x.uid===uid);
-  if(!uid){const r=cached;S.up={sample:true,name:r?r.name:'Sample',role:r?r.role:'rider',car:r&&r.car,caption:r&&r.caption,posts:[],about:r&&r.about,vibes:r&&r.vibes};openSheet('user');return;}
+  if(!uid){const r=cached;S.up={sample:true,event:r&&r.event,name:r?r.name:'Sample',role:r?r.role:'rider',car:r&&r.car,caption:r&&r.caption,posts:[],about:r&&r.about,vibes:r&&r.vibes};openSheet('user');return;}
   const h=S.live.find(x=>x.hostUid===uid);
   S.up={uid,name:(cached&&cached.name)||(h&&h.name)||'',role:(cached&&cached.role)||(h?'host':'rider'),photo:(cached&&cached.photo)||null,loading:true,posts:[],planId:h?h.id:null};
   openSheet('user');
@@ -1677,7 +1691,7 @@ async function openUser(uid,rid){
     try{const c=await SB.rpc('follower_counts',{host_ids:[uid]});((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});}catch(e){}
     if(S.up&&S.up.uid===uid){
       Object.assign(S.up,{loading:false,photo,vibes:p&&p.vibes,about:p?Object.fromEntries(ABOUT.map(a=>[a[0],p[a[0]]||''])):{},name:p?p.first_name:S.up.name,age:p&&p.age,gender:p&&p.gender,ig:p&&p.instagram,role:(p&&p.role)||(h?'host':S.up.role),car:p&&p.car,carColor:p&&p.car_color,carUrl:p&&p.car_photo_path?(u[p.car_photo_path]||null):(h&&h.carUrl)||null,
-        posts:rows.filter(x=>u[x.path]).map(x=>({id:'r_'+x.id,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at}))});
+        posts:rows.filter(x=>u[x.path]).map(x=>({id:'r_'+x.id,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at,event:x.event_id}))});
       if(!p&&!h){try{const fc=await SB.rpc('friend_card',{uid});const c=fc&&fc.data&&fc.data[0];if(c){S.up.name=c.first_name;S.up.role=c.role||'rider';}}catch(e){}}
       if(!p&&h){S.up.car=h.car;S.up.carColor=h.color;S.up.ig=h.ig;S.up.age=h.crew[0][3];}
     }
@@ -1733,6 +1747,7 @@ function igProfileHTML(U){
   <div><div class="igp-name">${esc(U.name||'')}${U.age?', '+U.age:''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="tag">${isH?'Host':'Rider'}</span>${friend?'<span class="tag" style="background:var(--good);color:var(--bg)">Friends</span>':''}${U.sample?'<span class="tag">Sample</span>':''}${U.planId?'<span class="tag" style="background:var(--good);color:var(--bg)">Live now</span>':''}</div></div>
   ${isH?'':vibes}${btns}
+  ${(()=>{const ev=[...new Set((U.posts||[]).map(p=>p.event||S.postEv[p.id]).filter(e=>e&&EVENTS[e]))];if(!ev.length&&U.sample&&U.event)ev.push(U.event);return ev.length?`<section class="panel"><h3>Will be at</h3><div class="chips">${ev.map(e=>`<span class="chip">${esc(EVENTS[e].name)} · ${esc(EVENTS[e].venue||'')}</span>`).join('')}</div></section>`:'';})()}
   ${common.length?`<section class="panel" style="border-color:var(--accent)"><h3>You have this in common</h3><div class="chips">${common.map(c=>`<span class="chip" style="background:var(--accent-soft);border-color:var(--accent)">${esc(c)}</span>`).join('')}</div></section>`:''}
   ${(lines.length||U.self)?`<section class="panel"><div class="row"><h3>${U.self?'About you':'About '+esc(first)}</h3>${U.self?'<button class="chip" data-act="auedit">Edit</button>':''}</div>
     ${lines.length?`<ul class="list">${lines.map(l=>`<li><span class="note" style="min-width:86px">${l[0]}</span><b>${esc(l[1])}</b></li>`).join('')}</ul>`:'<p class="note">Add where you studied and what you do, so people can find what you have in common.</p>'}</section>`:''}
@@ -1776,6 +1791,8 @@ function sheetCompose(){
   return `<div class="sheet-h"><div><span class="eyebrow">New reel</span><h2>How is your day going?</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
   ${C.kind==='image'?`<img class="cmpprev" src="${esc(C.url)}" alt="Preview">`:`<video class="cmpprev" src="${esc(C.url)}#t=0.1" controls playsinline preload="metadata"></video>`}
   <label class="fld" for="cmp-cap">Say something (optional)<input class="inp" id="cmp-cap" maxlength="140" placeholder="Brunch in Osu, heading to Neon Nights later"></label>
+  <label class="fld" for="cmp-ev">I'll be at (optional)<select class="inp" id="cmp-ev"><option value="">No event</option>${Object.values(EVENTS).map(e=>`<option value="${esc(e.id)}">${esc(e.name)} · ${esc(e.venue||'')}</option>`).join('')}</select></label>
+  <p class="note">Tag an event and people going to it can find your reel, and you count as going. Only the number going is public.</p>
   <p class="note">Your reel disappears after 24 hours. People who follow you${S.role==='host'?' and riders near your plan':''} can see it.</p>
   <button class="btn" data-act="cmppost">${ic('play',18)}Post reel</button>`;
 }
@@ -2030,6 +2047,7 @@ function act(a,el,ev){
       navigator.geolocation.getCurrentPosition(p=>{S.locState='ok';S.myLL=[p.coords.latitude,p.coords.longitude];renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
     case 'follow':{const h=hostById(id);if(h)toggleFollow(h);break;}
     case 'going':toggleGoing(v);break;
+    case 'reelev':S.reelEv=(S.reelEv===v)?'':v;renderView();break;
     case 'onlyfol':S.onlyFol=!S.onlyFol;renderView();break;
     case 'evt':S.event=v;renderView();break;
     case 'range':S.range=Number(v);S.nearKey=null;renderView();break;
@@ -2042,7 +2060,7 @@ function act(a,el,ev){
     case 'user':openUser(el.dataset.uid,el.dataset.rid);break;
     case 'folu':toggleFollowUid(el.dataset.uid,el.dataset.name);break;
     case 'userpost':{const rid=el.dataset.rid;if(!S.reels.find(x=>x.id===rid)){const U=(S.sheet==='user'?S.up:selfUser())||{};S.reels.unshift({id:rid,uid:U.uid,name:U.name,role:U.role,photo:U.photo,...(U.posts||[]).find(p=>p.id===rid),planId:U.planId,car:[U.carColor,U.car].filter(Boolean).join(' ')});}S.reelFocus=rid;S.sheet=null;S.tab='reels';renderAll();break;}
-    case 'cmppost':{const C=S.cmp;if(!C)break;const cap=(($('#cmp-cap')||{}).value||'').trim();closeSheet();addPost(C.file,cap);break;}
+    case 'cmppost':{const C=S.cmp;if(!C)break;const cap=(($('#cmp-cap')||{}).value||'').trim();closeSheet();addPost(C.file,cap,($('#cmp-ev')||{}).value||'');break;}
     case 'carsave':saveCar();break;
     case 'shareme':{const u=S.auth.user;if(!u)break;const url=location.origin+location.pathname+'?u='+u.id,msg='Add me on Pull Up';
       if(navigator.share){navigator.share({title:'Pull Up',text:msg,url}).catch(()=>{});}
