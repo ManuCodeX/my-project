@@ -1,4 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}</style></head><body><title>Pull Up</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0e0e10"><link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -1096,6 +1097,7 @@ function viewProfile(){
   if(SB&&!S.myPostsLoaded){S.myPostsLoaded=true;setTimeout(loadMyPosts,0);}
   if(SB&&!S.fcSelf&&A.user){S.fcSelf=true;SB.rpc('follower_counts',{host_ids:[A.user.id]}).then(c=>{((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});if(S.tab==='profile'&&!S.sheet)renderView();}).catch(()=>{});}
   return `${head}
+  ${pushCard()}
   ${myPageHTML()}
   ${host?'':`<section class="panel"><h3>Your drop-off address</h3>
     ${S.dropLL?`<div class="toggle" style="padding:2px 0"><div><b>${esc(S.dropName||'Saved address')}</b><div class="note">Used as the last stop on every plan</div></div><button class="chip" data-act="dropclear">Remove</button></div>`:'<p class="note">Search the area or landmark where you want to be dropped.</p>'}
@@ -1103,10 +1105,49 @@ function viewProfile(){
     <p class="note">Saved on this device only. Hosts never see it. Only you and your trusted contacts do.</p></section>`}
   <section class="panel"><h3>${host?'You are hosting':'You are riding'}</h3><p class="note">${host?'You see riders who ask for your ride. To find a ride yourself, switch to riding.':'You see hosts parked after events. To offer rides in your own car, switch to hosting.'}</p><button class="btn ghost" data-act="switchrole">Switch to ${host?'riding':'hosting'}</button>${SB&&A.user?'<button class="btn ghost" data-act="auout">Sign out</button>':''}</section>`;
 }
+function pushSupported(){return !!(window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);}
+function pushState(){return !pushSupported()?'off-unsupported':(Notification.permission==='denied'?'denied':(S.pushOn?'on':'off'));}
+async function pushCheck(){
+  if(!pushSupported()||S.pushChecked)return;S.pushChecked=true;
+  try{const reg=await navigator.serviceWorker.getRegistration('/');const sub=reg&&await reg.pushManager.getSubscription();if(sub&&Notification.permission==='granted'){S.pushOn=true;if(S.tab==='profile'||S.tab==='safety')renderView();}}catch(e){}
+}
+async function enablePush(){
+  const A=S.auth;if(!SB||!A.user){toast('Sign in first');return;}
+  if(!pushSupported()){toast('On iPhone, add Pull Up to your Home Screen first, then turn this on.');return;}
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast('Notifications are blocked. Allow them in your browser settings.');renderView();return;}
+    const k=await (await fetch('/api/push')).json();
+    if(!k.key){toast('Notifications are not set up on the server yet.');return;}
+    const b64=k.key.replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b64+'='.repeat((4-b64.length%4)%4)),key=Uint8Array.from(raw,c=>c.charCodeAt(0));
+    const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    const j=sub.toJSON();
+    const r=await SB.from('push_subs').upsert({endpoint:j.endpoint,user_id:A.user.id,p256dh:j.keys.p256dh,auth:j.keys.auth});
+    if(r&&r.error)throw r.error;
+    S.pushOn=true;toast('Notifications on');renderView();
+  }catch(e){toast(/push_subs/i.test((e&&e.message)||'')?'Run supabase-step20-event-tag.sql first.':'Could not turn on notifications.');}
+}
+async function disablePush(){
+  try{const reg=await navigator.serviceWorker.getRegistration('/');const sub=reg&&await reg.pushManager.getSubscription();if(sub){const ep=sub.endpoint;await sub.unsubscribe();if(SB)await SB.from('push_subs').delete().eq('endpoint',ep);}}catch(e){}
+  S.pushOn=false;toast('Notifications off');renderView();
+}
+async function notify(type,ref){
+  try{if(!SB||!S.auth.user)return;const ss=await SB.auth.getSession(),t=ss&&ss.data&&ss.data.session&&ss.data.session.access_token;if(!t)return;
+    fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({type,ref})}).catch(()=>{});}catch(e){}
+}
+function pushCard(){
+  if(!SB||!S.auth.user)return '';
+  setTimeout(pushCheck,0);
+  const st=pushState(),on=st==='on';
+  return `<section class="panel"><div class="toggle" style="padding:0"><div><b>Ride notifications</b><div class="note">${st==='denied'?'Blocked in your browser settings.':st==='off-unsupported'?'On iPhone, add Pull Up to your Home Screen to turn this on.':'Get told when a request comes in, when you are accepted, and when your ride messages you.'}</div></div>${st==='denied'||st==='off-unsupported'?'':`<button class="sw" role="switch" aria-checked="${on}" data-act="pushtoggle"></button>`}</div></section>`;
+}
 function viewSafety(){
   const st=S.settings;
   const sw=(on,act,id)=>`<button class="sw" role="switch" aria-checked="${on}" data-act="${act}" data-id="${id||''}"></button>`;
   return `<div class="hero"><span class="eyebrow">Safety</span><h2>Set it once, it runs on every ride</h2></div>
+  ${pushCard()}
   <section class="panel"><h3>Trusted contacts</h3>
     ${CONTACTS.map(c=>`<div class="toggle" style="padding:2px 0"><div class="crewline">${av(c.name,34)}<div><b>${esc(c.name)}</b><div class="note">${esc(c.phone)}</div></div></div><span style="display:flex;gap:8px;align-items:center">${sw(st.share[c.id]!==false,'tglc',c.id)}<button class="chip" data-act="ctdel" data-id="${c.id}" aria-label="Remove ${esc(c.name)}">Remove</button></span></div>`).join('')||'<p class="note">No contacts yet.</p>'}
     <div class="field"><input id="ct-name" placeholder="Name (e.g. Ama)" maxlength="40"><input id="ct-phone" type="tel" inputmode="tel" placeholder="Phone, e.g. 024 123 4567" maxlength="20" style="margin-top:6px"><button class="btn ghost" data-act="ctadd" style="margin-top:6px">Add contact</button></div>
@@ -1319,7 +1360,7 @@ async function sendChat(){
   c.msgs.push(m);paintChat();
   const r=await SB.from('messages').insert({request_id:c.id,sender_id:S.auth.user.id,body});
   if(r&&r.error){c.msgs=c.msgs.filter(x=>x!==m);paintChat();inp.value=body;toast(/policy|row-level/i.test(r.error.message||'')?'Chat is closed for this ride.':'Message not sent. Try again.');}
-  else{m.pending=false;pollChat();}
+  else{m.pending=false;notify('chat',c.id);pollChat();}
 }
 function sheetChat(){
   const c=S.chat;
@@ -1337,7 +1378,7 @@ async function sendRealRequest(){
     const friend=D.friendOn?{n:F.name.trim().slice(0,40),g:F.gender,a:Number(F.age)||27}:null;
     const r=await SB.from('requests').upsert({plan_id:h.planId,rider_id:A.user.id,friend,status:'pending'},{onConflict:'plan_id,rider_id'}).select('id,status').single();
     if(r.error)throw r.error;
-    S.myReqs[h.planId]={id:r.data.id,status:'pending',plate:null};
+    S.myReqs[h.planId]={id:r.data.id,status:'pending',plate:null};notify('request',r.data.id);
     toast('Request sent to '+h.name);
     renderSheet();renderView();
   }catch(e){toast('Could not send: '+(((e&&e.message)||'try again').slice(0,80)));}
@@ -1354,7 +1395,7 @@ async function decideRequest(id,status){
   if(status==='accepted'&&(r.status!=='pending'))return;
   const res=await SB.from('requests').update({status}).eq('id',id);
   if(res&&res.error){toast('Could not update. Try again.');return;}
-  r.status=status;toast(status==='accepted'?r.name+' accepted':'Declined');renderView();
+  r.status=status;notify(status,id);toast(status==='accepted'?r.name+' accepted':'Declined');renderView();
 }
 async function loadRequests(rows,mine){
   const A=S.auth;if(!SB||!A.user)return false;
@@ -2047,6 +2088,7 @@ function act(a,el,ev){
       navigator.geolocation.getCurrentPosition(p=>{S.locState='ok';S.myLL=[p.coords.latitude,p.coords.longitude];renderView();},()=>toast('Could not get your location. Check the permission.'),{enableHighAccuracy:true,timeout:10000});break;
     case 'follow':{const h=hostById(id);if(h)toggleFollow(h);break;}
     case 'going':toggleGoing(v);break;
+    case 'pushtoggle':if(S.pushOn)disablePush();else enablePush();break;
     case 'reelev':S.reelEv=(S.reelEv===v)?'':v;renderView();break;
     case 'onlyfol':S.onlyFol=!S.onlyFol;renderView();break;
     case 'evt':S.event=v;renderView();break;
@@ -2078,7 +2120,7 @@ function act(a,el,ev){
     case 'aumode':S.auth.mode=v;S.auth.err='';S.auth.status='idle';renderView();break;
     case 'aupw':authPw(v==='up');break;
     case 'auout':authOut();break;
-    case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice(),instagram:m.instagram||''};S.auth.editing=true;S.auth.err='';renderView();break;}
+    case 'auedit':{const m=S.auth.profile;S.auth.form={first_name:m.first_name,age:String(m.age),gender:m.gender,vibes:(m.vibes||[]).slice(),instagram:m.instagram||'',...Object.fromEntries(ABOUT.map(a=>[a[0],m[a[0]]||'']))};S.auth.editing=true;S.auth.err='';renderView();break;}
     case 'pfcancel':S.auth.editing=false;S.auth.err='';S.auth.file=null;S.auth.preview='';renderView();break;
     case 'pfgender':S.auth.form.gender=v;renderView();break;
     case 'pfvibe':{const a=S.auth.form.vibes,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
