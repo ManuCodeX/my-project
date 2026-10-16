@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     if (type === 'request' && me === rider && row.status === 'pending') { to = host; title = 'New ride request'; text = 'Someone wants to ride with you. Open Pull Up to see.'; }
     else if (type === 'accepted' && me === host && row.status === 'accepted') { to = rider; title = 'You are in'; text = 'Your host accepted. Open Pull Up for the plate and pickup spot.'; }
     else if (type === 'declined' && me === host && row.status === 'declined') { to = rider; title = 'Request update'; text = 'This host cannot take you tonight. Other plans may be nearby.'; }
-    else if (type === 'chat' && (me === rider || me === host) && row.status === 'accepted') { to = me === rider ? host : rider; title = 'New message'; text = 'You have a message about tonight’s ride.'; }
+    else if (type === 'chat' && (me === rider || me === host) && (row.status === 'accepted' || row.status === 'pending')) { to = me === rider ? host : rider; title = 'New message'; text = 'You have a message about tonight’s ride.'; }
     if (!to) return J(res, 403, { error: 'not allowed' });
     const sr = await fetch(url + '/rest/v1/push_subs?user_id=eq.' + to + '&select=endpoint,p256dh,auth', { headers: H });
     const subs = sr.ok ? await sr.json() : [];

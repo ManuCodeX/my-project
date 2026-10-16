@@ -59,6 +59,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .seg button{padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;color:var(--ink-2)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .ptr{position:fixed;left:50%;top:0;z-index:60;width:38px;height:38px;margin-left:-19px;border-radius:50%;background:var(--surface);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;color:var(--accent);opacity:0;pointer-events:none;transform:translateY(-50px)}.ptr svg{width:18px;height:18px}.ptr.spin svg{animation:ptrs .8s linear infinite}@keyframes ptrs{to{transform:rotate(360deg)}}
+.igwrap{position:relative;border-radius:12px;overflow:hidden;background:var(--surface-2)}.igwrap .igframe{display:block}.igload{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;color:var(--ink-2);font-size:13px;pointer-events:none}.igwrap.ok .igload{display:none}.ptr-sp{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:ptrs .8s linear infinite}.igslow{opacity:0;animation:igf .4s 6s forwards}@keyframes igf{to{opacity:1}}
 .view{overscroll-behavior-y:contain;flex:1;min-height:0;overflow:auto;padding:16px 16px 96px;display:flex;flex-direction:column;gap:16px}
 .view>*{flex:none;width:100%;max-width:1040px;margin-inline:auto}
 .sheet>*{flex:none}
@@ -892,7 +893,7 @@ function cardHTML(h){
   </div>
   <div class="card-body">
     <div class="row"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h.real?`<button class="name linkish" data-act="hostpage" data-id="${h.id}">${esc(h.name)}</button>`:`<span class="name">${esc(h.name)}</span>`}${hostBadge(h)}</div>
-    <span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'}<span class="muted" style="font-weight:400">${h.trips?'('+h.trips+')':''}</span></span></div>
+    <span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'}</span></div>
     <div class="muted">${esc(h.color)} ${esc(h.car)} · parked ${h.parkM} m from ${esc(ev.venue)}</div>
     <div class="crewline"><div class="avs">${h.crew.slice(0,5).map(c=>crewAv(c,28)).join('')}</div><span><b>${crewLabel(h)}</b><span class="muted"> · ${crewMix(h)}</span></span></div>
     <div class="note">${seatsLine(h)}</div>
@@ -924,7 +925,7 @@ function tileHTML(h){
   <span class="dface">${face}</span>
   <div class="dn">${esc(h.name)}</div>
   <div class="ds">${esc(h.color)} ${esc(h.car)} · leaving ${esc(h.leaving)}</div>
-  <div class="dm">${fitTag(h)}${isFol(h)?'<span class="tag" style="background:var(--accent);color:var(--accent-ink)">Following</span>':''}${h.ig?'<span class="tag">Instagram</span>':''}</div>
+  <div class="dm">${fitTag(h)}${isFol(h)?`<span class="tag" style="background:var(--accent);color:var(--accent-ink)">${S.friends.has(h.hostUid)?'Friends':'Requested'}</span>`:''}${h.ig?'<span class="tag">Instagram</span>':''}</div>
   ${(h.real?hasVlog(h):true)?`<span class="dplay" aria-hidden="true">${ic('play',14)}</span>`:''}
   </button>`;
 }
@@ -963,7 +964,7 @@ function viewTonight(){
   return `<div class="hero"><span class="eyebrow">${S.fake?'Demo location: Accra':S.myLL?'Live near you':'Near you'}</span><h1>Rides around you, right now</h1><p class="muted">Walk away and the plans go with you. You choose who you move with. Hosts can't message you first.</p></div>
   ${storiesRow()}
   <div class="chips" role="group" aria-label="Range"><span class="eyebrow" style="align-self:center">Within</span>${[1,3,5,10].map(k=>`<button class="chip" data-act="range" data-v="${k}" aria-pressed="${S.range===k}">${k} km</button>`).join('')}</div>
-  ${SB&&A_ok()?`<div class="chips" role="group" aria-label="Following"><button class="chip" data-act="onlyfol" aria-pressed="${S.onlyFol}">Following${S.fol.size?' · '+S.fol.size:''}</button></div>`:''}
+  ${SB&&A_ok()?`<div class="chips" role="group" aria-label="Friends"><button class="chip" data-act="onlyfol" aria-pressed="${S.onlyFol}">Friends and added${S.fol.size?' · '+S.fol.size:''}</button></div>`:''}
   <div class="chips" role="group" aria-label="Group size"><span class="eyebrow" style="align-self:center">In the car</span>${grp.map(g=>`<button class="chip" data-act="grp" data-v="${g[0]}" aria-pressed="${S.group===g[0]}">${g[1]}</button>`).join('')}</div>
   ${body}
   <div class="rule">${ic('shield',18)}<span>Every rider, host and friend passes a live selfie check matched to their ID. You see everyone in the car, with gender and age, before you confirm.</span></div>
@@ -1037,7 +1038,7 @@ function viewMap(){
   const ago=f=>{if(f.mins!=null)return f.mins+' min ago';const m=Math.max(0,Math.round((Date.now()-new Date(f.at))/60000));return m+' min ago';};
   const fl=friends.length?`<section class="panel"><div class="row"><h3>Friends near you</h3>${sampleF?'<span class="tag">Sample</span>':''}</div>
     ${friends.map(f=>`<div class="toggle" style="padding:4px 0"><div class="crewline">${f.photo?`<span class="av" style="width:36px;height:36px"><img class="p" src="${esc(f.photo)}" alt=""></span>`:av(f.name,36)}<div><b>${esc(f.name)}</b><div class="note">${distKm(centre,f.ll).toFixed(1)} km away · ${ago(f)}</div></div></div>${f.sample?'':`<button class="chip" data-act="user" data-uid="${esc(f.id)}">Profile</button>`}</div>`).join('')}
-    ${sampleF?'<p class="note">Sample friends. Follow people and have them follow you back to see real friends here.</p>':''}</section>`:`<p class="note">${S.friendsOff?'Friends near you needs the step 17 database update.':'No friends are sharing nearby. Friends are people you follow who follow you back.'}</p>`;
+    ${sampleF?'<p class="note">Sample friends. Add people and have them add you back to see real friends here.</p>':''}</section>`:`<p class="note">${S.friendsOff?'Friends near you needs the step 17 database update.':'No friends are sharing nearby. Friends are people you follow who follow you back.'}</p>`;
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>${title}</h2><p class="muted">${sub}</p></div>
   <div class="split"><div class="map-wrap">${mapAny({box,markers,heat,center:true,aria:title})}</div>
   ${host?'':`<div class="hscroll">${hs.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="muted">Leaving ${esc(h.leaving)}</span></button>`).join('')}</div>`}</div>
@@ -1177,6 +1178,7 @@ function reqCard(r){
   }
   return `<div class="req"><div class="crewline">${av(r.name,52,true)}${r.friend?av(r.friend.name,52,true):''}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">Woman · Face matched · ${r.shows}% show-up · ${r.rating.toFixed(1)} from hosts</div></div></div>
   <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.name)+'</b>: '+r.friend.gender+', '+r.friend.age+', face matched':'Coming alone'}</div>
+  ${r.mood?`<div class="rule">${ic('chat',16)}<span>She says: <b>${esc(r.mood)}</b></span></div>`:''}
   <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
   ${r.status==='accepted'?`<span class="vbadge" style="align-self:flex-start">${ic('check',11)}Accepted. She confirms at pickup.</span>`:`${why?`<p class="note" style="color:var(--bad)">${why}</p>`:''}<div class="two"><button class="btn sm" style="width:100%" data-act="racc" data-id="${r.id}" ${why?'disabled':''}>Accept</button><button class="btn ghost sm" style="width:100%" data-act="rdec" data-id="${r.id}">Decline</button></div>`}</div>`;
 }
@@ -1329,7 +1331,8 @@ function logT(m,k){S.trip.log.push({t:clock(),m,k});}
 function chatHTML(msgs){
   const me=S.auth.user&&S.auth.user.id;
   if(!msgs.length)return '<p class="note" style="text-align:center;margin:auto">No messages yet. Say hi and confirm the pickup spot.</p>';
-  return msgs.map(m=>`<div class="bub ${m.sender_id===me?'me':'them'}">${esc(m.body)}<small>${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small></div>`).join('');
+  const U=(S.chat&&S.chat.urls)||{};
+  return msgs.map(m=>`<div class="bub ${m.sender_id===me?'me':'them'}">${m.kind==='voice'?(U[m.audio_path]?`<audio controls preload="none" src="${esc(U[m.audio_path])}" style="max-width:100%;height:36px"></audio>`:'<span class="note">Voice note loading…</span>'):m.kind==='call'?`<b>${/video/i.test(m.body)&&!/muted/i.test(m.body)?'Video call':'Voice call'} invite</b><br><a class="btn sm" style="display:inline-block;margin-top:6px;text-decoration:none" href="${esc(m.body)}" target="_blank" rel="noopener noreferrer">Join the call</a>`:esc(m.body)}<small>${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small></div>`).join('');
 }
 function paintChat(){
   const el=document.getElementById('chatList');if(!el||!S.chat)return;
@@ -1341,14 +1344,18 @@ async function pollChat(){
   const c=S.chat;if(!c||S.sheet!=='chat'||c.busy)return;
   c.busy=true;
   try{
-    const r=await SB.from('messages').select('id,sender_id,body,created_at').eq('request_id',c.id).order('created_at',{ascending:true}).limit(200);
+    let r=await SB.from('messages').select('id,sender_id,body,created_at,kind,audio_path').eq('request_id',c.id).order('created_at',{ascending:true}).limit(200);
+    if(r.error&&/kind|audio_path/i.test(r.error.message||''))r=await SB.from('messages').select('id,sender_id,body,created_at').eq('request_id',c.id).order('created_at',{ascending:true}).limit(200);
+    if(!r.error){c.urls=c.urls||{};const need=(r.data||[]).filter(m=>m.audio_path&&!c.urls[m.audio_path]).map(m=>m.audio_path);
+      if(need.length){const u=await SB.storage.from('voice').createSignedUrls(need,3600);((u&&u.data)||[]).forEach(z=>{if(z.signedUrl&&z.path)c.urls[z.path]=z.signedUrl;});}}
     if(r.error){c.err=/relation|messages/i.test(r.error.message||'')?'Chat needs the step 8 database update.':'Could not load messages.';const e=document.getElementById('chatErr');if(e)e.textContent=c.err;}
     else if(S.chat===c){const pend=c.msgs.filter(m=>m.pending);c.msgs=[...(r.data||[]),...pend.filter(p=>!(r.data||[]).some(d=>d.body===p.body&&d.sender_id===p.sender_id&&Math.abs(new Date(d.created_at)-new Date(p.created_at))<60000))];paintChat();}
   }catch(e){}
   c.busy=false;
 }
 function openChat(reqId,name){
-  S.chat={id:reqId,name:name||'Match',msgs:[],err:'',first:true,busy:false};
+  const hq=(S.hostReqs||[]).find(x=>x.id===reqId),rq=Object.values(S.myReqs||{}).find(x=>x.id===reqId);
+  S.chat={id:reqId,name:name||'Match',msgs:[],err:'',first:true,busy:false,urls:{},status:(hq||rq||{}).status||'accepted',rec:null};
   openSheet('chat');
   pollChat();
   S.chatTimer=setInterval(pollChat,4000);
@@ -1364,12 +1371,43 @@ async function sendChat(){
   else{m.pending=false;notify('chat',c.id);pollChat();}
 }
 function sheetChat(){
-  const c=S.chat;
-  return `<div class="sheet-h"><div><span class="eyebrow">Private chat</span><h2>${esc(c.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
-  <p class="note">Only the two of you can see this. Keep it about the ride. If anything feels off, close this and use Report a problem or SOS.</p>
+  const c=S.chat,pend=c.status==='pending';
+  return `<div class="sheet-h"><div><span class="eyebrow">${pend?'Potential match':'Private chat'}</span><h2>${esc(c.name)}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
+  <p class="note">${pend?'Not official yet. Chat, send a voice note or hop on a call first. Your live location and plate are only shared once he accepts. No phone numbers are shared.':'Only the two of you can see this. Keep it about the ride. If anything feels off, close this and use Report a problem or SOS.'}</p>
   <div class="chat-list" id="chatList" role="log" aria-live="polite">${chatHTML(c.msgs)}</div>
   <p class="note" id="chatErr" style="color:var(--bad)">${esc(c.err||'')}</p>
+  <div class="chips" style="margin-bottom:8px"><button class="chip" data-act="chatcall" data-v="voice">${ic('chat',14)} Voice call</button><button class="chip" data-act="chatcall" data-v="video">${ic('image',14)} Video call</button><button class="chip" id="vnBtn" data-act="chatvn">${c.rec?'Stop and send':'Voice note'}</button></div>
   <div class="chat-in"><textarea class="inp" id="chatIn" rows="1" maxlength="500" placeholder="Message ${esc(c.name)}" aria-label="Message"></textarea><button class="btn" style="width:auto" data-act="chatsend">Send</button></div>`;
+}
+async function sendCall(kind){
+  const c=S.chat;if(!c||!S.auth.user)return;
+  const room='PullUp-'+c.id.slice(0,8)+'-'+Math.random().toString(36).slice(2,8);
+  const link='https://meet.jit.si/'+room+(kind==='voice'?'#config.startWithVideoMuted=true&config.startWithAudioMuted=false':'');
+  const r=await SB.from('messages').insert({request_id:c.id,sender_id:S.auth.user.id,body:link,kind:'call'});
+  if(r&&r.error){toast(/kind/i.test(r.error.message||'')?'Calls need the step 21 database update.':'Could not start the call.');return;}
+  window.open(link,'_blank','noopener,noreferrer');notify('chat',c.id);pollChat();
+}
+async function toggleVN(){
+  const c=S.chat;if(!c||!S.auth.user)return;
+  if(c.rec){c.rec.stop();return;}
+  if(!navigator.mediaDevices||!window.MediaRecorder){toast('Voice notes are not supported on this browser.');return;}
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true}),mr=new MediaRecorder(st),chunks=[];
+    mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+    mr.onstop=async()=>{
+      clearTimeout(c.recT);st.getTracks().forEach(t=>t.stop());c.rec=null;if(S.sheet==='chat')renderSheet();
+      const type=mr.mimeType||'audio/webm',blob=new Blob(chunks,{type}),ext=/mp4|aac/.test(type)?'m4a':/ogg/.test(type)?'ogg':'webm';
+      if(blob.size<800)return;
+      const path=c.id+'/'+Date.now()+'.'+ext;
+      const up=await SB.storage.from('voice').upload(path,blob,{contentType:type.split(';')[0]});
+      if(up.error){toast(/bucket|not found/i.test(up.error.message||'')?'Voice notes need the step 21 database update.':'Could not send the voice note.');return;}
+      const r=await SB.from('messages').insert({request_id:c.id,sender_id:S.auth.user.id,body:null,kind:'voice',audio_path:path});
+      if(r&&r.error){toast('Could not send the voice note.');return;}
+      notify('chat',c.id);pollChat();
+    };
+    c.rec=mr;mr.start();c.recT=setTimeout(()=>{if(c.rec)c.rec.stop();},60000);
+    if(S.sheet==='chat')renderSheet();toast('Recording. Tap again to send.');
+  }catch(e){toast('Allow the microphone to send voice notes.');}
 }
 async function sendRealRequest(){
   const h=hostById(S.draft.id),D=S.draft,F=D.friend,A=S.auth;
@@ -1377,12 +1415,14 @@ async function sendRealRequest(){
   S.sendingReq=true;
   try{
     const friend=D.friendOn?{n:F.name.trim().slice(0,40),g:F.gender,a:Number(F.age)||27}:null;
-    const r=await SB.from('requests').upsert({plan_id:h.planId,rider_id:A.user.id,friend,status:'pending'},{onConflict:'plan_id,rider_id'}).select('id,status').single();
+    const mood=(D.mood||'').slice(0,60)||null;
+    let r=await SB.from('requests').upsert({plan_id:h.planId,rider_id:A.user.id,friend,status:'pending',...(mood?{mood}:{})},{onConflict:'plan_id,rider_id'}).select('id,status').single();
+    if(r.error&&mood&&/mood/i.test(r.error.message||''))r=await SB.from('requests').upsert({plan_id:h.planId,rider_id:A.user.id,friend,status:'pending'},{onConflict:'plan_id,rider_id'}).select('id,status').single();
     if(r.error)throw r.error;
     S.myReqs[h.planId]={id:r.data.id,status:'pending',plate:null};notify('request',r.data.id);
     toast('Request sent to '+h.name);
     renderSheet();renderView();
-  }catch(e){toast('Could not send: '+(((e&&e.message)||'try again').slice(0,80)));}
+  }catch(e){const m=(e&&e.message)||'';toast(/row-level|policy/i.test(m)?'You can no longer request this plan. It may have ended, or the host passed on it.':'Could not send: '+(m||'try again').slice(0,80));}
   S.sendingReq=false;
 }
 async function cancelRealRequest(hid){
@@ -1423,7 +1463,7 @@ async function loadRequests(rows,mine){
       const paths=[...new Set(list.map(x=>x.rider&&x.rider.photo_path).filter(Boolean))],urls={};
       if(paths.length){const u=await SB.storage.from('avatars').createSignedUrls(paths,3600);((u&&u.data)||[]).forEach(z=>{if(z.signedUrl&&z.path)urls[z.path]=z.signedUrl;});}
       const before=S.hostReqs.length;
-      S.hostReqs=list.filter(x=>x.rider).map(x=>({id:x.id,status:x.status,name:x.rider.first_name,age:x.rider.age,gender:x.rider.gender,vibes:x.rider.vibes||[],photo:urls[x.rider.photo_path]||null,ig:x.rider.instagram||null,rid:x.rider_id,friend:x.friend}));
+      S.hostReqs=list.filter(x=>x.rider).map(x=>({id:x.id,status:x.status,name:x.rider.first_name,age:x.rider.age,gender:x.rider.gender,vibes:x.rider.vibes||[],photo:urls[x.rider.photo_path]||null,ig:x.rider.instagram||null,rid:x.rider_id,friend:x.friend,mood:x.mood||''}));
       if(S.hostReqs.length>before)changed=true;
     }else S.hostReqs=[];
   }catch(e){S.reqOff=true;}
@@ -1439,7 +1479,8 @@ function realReqCard(r){
     else if(need>left)why='Needs '+need+' seat'+(need>1?'s':'')+', you have '+left+'.';
   }
   const face=r.photo?`<span class="av" style="width:52px;height:52px;background:var(--surface-2)"><img class="p" src="${esc(r.photo)}" alt="${esc(r.name)}"></span>`:av(r.name,52,false);
-  const ig=`<button class="btn ghost sm act" data-act="riderday" data-id="${r.id}">${ic('image',16)}<span>Her day</span></button>`+(igOk(r.ig)?`<button class="btn ghost sm act" data-act="igr" data-id="${r.id}">${ic('image',16)}<span>Instagram</span></button>`:'');
+  const chatB=r.status==='pending'?`<button class="btn ghost sm act" data-act="chat" data-id="${r.id}" data-v="${esc(r.name)}">${ic('chat',16)}<span>Chat first</span></button>`:'';
+  const ig=chatB+`<button class="btn ghost sm act" data-act="riderday" data-id="${r.id}">${ic('image',16)}<span>Her day</span></button>`+(igOk(r.ig)?`<button class="btn ghost sm act" data-act="igr" data-id="${r.id}">${ic('image',16)}<span>Instagram</span></button>`:'');
   return `<div class="req"><div class="crewline">${face}<div style="flex:1;min-width:0"><b>${esc(r.name)}, ${r.age}</b><div class="note">${esc(r.gender)} · Photo added · ID check soon</div></div></div>
   <div class="note">${r.friend?'Bringing <b>'+esc(r.friend.n)+'</b>: '+esc(r.friend.g)+', '+esc(String(r.friend.a))+'. Her photo check comes with ID verification.':'Coming alone'}</div>
   <div class="note">${fv.length?'Fits your plan: '+esc(fv.join(', ')):'Different vibe from your plan'}</div>
@@ -1449,7 +1490,7 @@ const isFol=h=>!!(h&&h.hostUid&&S.fol.has(h.hostUid));
 const folBtn=(h,cls)=>{
   if(!h.real||h.mine||!SB||!S.auth.user||S.socialOff)return '';
   const on=isFol(h),n=S.fcounts[h.hostUid]||0;
-  return `<button class="btn ghost act${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${ic(on?'check':'userplus',18)}<span>${on?'Following':'Follow'}${n?`<small>${n}</small>`:''}</span></button>`;
+  return `<button class="btn ghost act${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${ic(on?'check':'userplus',18)}<span>${followLabel(h.hostUid)}</span></button>`;
 };
 async function loadSocial(rows){
   const A=S.auth;if(!SB||!A.user)return;
@@ -1472,7 +1513,7 @@ async function toggleFollowUid(uid,name){
   const r=on?await SB.from('follows').delete().eq('follower_id',A.user.id).eq('followed_id',uid):await SB.from('follows').insert({follower_id:A.user.id,followed_id:uid});
   if(r&&r.error){if(on){S.fol.add(uid);S.fcounts[uid]=(S.fcounts[uid]||0)+1;}else{S.fol.delete(uid);S.fcounts[uid]=Math.max(0,(S.fcounts[uid]||1)-1);}renderAll();toast('Could not update. Try again.');return;}
   await loadFriends();
-  toast(on?'Unfollowed '+name:(S.friends.has(uid)?'You and '+name+' are friends':'Following '+name));
+  toast(on?'Removed '+name:(S.friends.has(uid)?'You and '+name+' are friends now':'Friend request sent to '+name));
   renderAll();
 }
 const toggleFollow=h=>toggleFollowUid(h.hostUid,h.name);
@@ -1480,7 +1521,7 @@ async function loadFriends(){
   if(!SB||!S.auth.user)return;
   try{const r=await SB.rpc('my_friends');if(r&&!r.error)S.friends=new Set((r.data||[]).map(x=>x.friend_id));}catch(e){}
 }
-const followLabel=uid=>S.friends.has(uid)?'Friends':S.fol.has(uid)?'Following':'Follow';
+const followLabel=uid=>S.friends.has(uid)?'Friends':S.fol.has(uid)?'Requested':'Add friend';
 async function toggleGoing(ev){
   const A=S.auth;if(!SB||!A.user||!EVENTS[ev])return;
   const on=S.goingMe.has(ev);
@@ -1496,6 +1537,12 @@ function goingHTML(){
 }
 const A_ok=()=>!!(S.auth.user&&S.auth.profile&&!S.socialOff);
 const igOk=v=>/^[A-Za-z0-9._]{1,30}$/.test(v||'');
+function igEmbed(h){
+  const u=encodeURIComponent(h);
+  return `<div class="igwrap"><div class="igload"><span class="ptr-sp"></span><b>Loading Instagram…</b><span class="igslow">Taking long? Instagram may have blocked the preview. Tap Open in Instagram below.</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${u}/embed" onload="this.parentNode.classList.add('ok')"></iframe></div>
+  <p class="note">Private accounts and some browsers cannot show the preview. If you see nothing or an error, open it in Instagram instead.</p>
+  <a class="btn ghost sm" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${u}/" target="_blank" rel="noopener noreferrer">Open in Instagram app</a>`;
+}
 const igBtn=(h,cls)=>(h.real&&igOk(h.ig))?`<button class="btn ghost act" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',18)}<span>Instagram</span></button>`:'';
 const actRow=(...b)=>{const x=b.filter(Boolean).join('');return x?`<div class="actions">${x}</div>`:'';};
 function resetUserData(){
@@ -1522,9 +1569,9 @@ function sheetHost(){
   <section class="panel"><div class="row"><h3>Right now</h3><span class="note">Gone after 24 hours</span></div>
     ${P.length?`<div class="hpposts">${P.map((p,i)=>`<button class="hpp" data-act="vlog" data-id="${h.id}" data-i="${i}" aria-label="Watch ${esc(first)}'s story ${i+1}">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" loading="lazy">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}${p.expires?`<span>${leftTxt(p.expires)}</span>`:''}</button>`).join('')}</div>`:`<p class="note">${esc(first)} has not posted anything in the last 24 hours.</p>`}</section>
   ${igOk(h.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(h.ig)}</span></div>
-    <iframe class="igframe" title="Instagram profile of ${esc(h.name)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(h.ig)}/embed"></iframe>
+    ${igEmbed(h.ig)}
     <p class="note">${esc(first)}'s own public Instagram. Private accounts do not show.</p></section>`:''}
-  <div class="actions">${canF?`<button class="btn ghost act" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${ic(on?'check':'userplus',18)}<span>${on?'Following':'Follow'}</span></button>`:''}<button class="btn act" data-act="open" data-id="${h.id}">See the plan</button></div>`;
+  <div class="actions">${canF?`<button class="btn ghost act" data-act="follow" data-id="${h.id}" aria-pressed="${on}">${ic(on?'check':'userplus',18)}<span>${followLabel(h.hostUid)}</span></button>`:''}<button class="btn act" data-act="open" data-id="${h.id}">See the plan</button></div>`;
 }
 async function shrinkImage(file,max){
   try{
@@ -1638,7 +1685,7 @@ function sheetRiderDay(){
   const R=S.rp||{},first=(R.name||'She').split(' ')[0];
   return `<div class="sheet-h"><div><span class="eyebrow">Her day</span><h2>${esc(R.name||'')}</h2></div><button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div>
   ${R.loading?'<p class="muted">Loading…</p>':(R.posts.length?R.posts.map(p=>`<div class="panel" style="padding:8px">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" style="width:100%;border-radius:10px;display:block">`:`<video controls playsinline preload="metadata" style="width:100%;border-radius:10px" src="${esc(p.url)}"></video>`}<p class="note">${p.caption?esc(p.caption)+' · ':''}${leftTxt(p.expires)}</p></div>`).join(''):`<p class="note">${esc(first)} has not shared anything in the last 24 hours.</p>`)}
-  ${igOk(R.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(R.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(R.ig)}/embed"></iframe></section>`:''}
+  ${igOk(R.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(R.ig)}</span></div>${igEmbed(R.ig)}</section>`:''}
   <button class="btn" data-act="close">Close</button>`;
 }
 /* ---------- reels, user profiles, composer ---------- */
@@ -1798,11 +1845,10 @@ function igProfileHTML(U){
   ${common.length?`<section class="panel" style="border-color:var(--accent)"><h3>You have this in common</h3><div class="chips">${common.map(c=>`<span class="chip" style="background:var(--accent-soft);border-color:var(--accent)">${esc(c)}</span>`).join('')}</div></section>`:''}
   ${(lines.length||U.self)?`<section class="panel"><div class="row"><h3>${U.self?'About you':'About '+esc(first)}</h3>${U.self?'<button class="chip" data-act="auedit">Edit</button>':''}</div>
     ${lines.length?`<ul class="list">${lines.map(l=>`<li><span class="note" style="min-width:86px">${l[0]}</span><b>${esc(l[1])}</b></li>`).join('')}</ul>`:'<p class="note">Add where you studied and what you do, so people can find what you have in common.</p>'}</section>`:''}
-  ${canF&&!friend?`<p class="note">Follow each other to become friends. Friends can see when each other is nearby.</p>`:''}
+  ${canF&&!friend?`<p class="note">Add each other to become friends. Friends can see when each other is nearby.</p>`:''}
   ${isH?carBlock:''}
   <section class="panel"><div class="row"><h3>${U.self?(isH?'Your night':'Your day'):isH?'Right now':man?'His day':'Her day'}</h3><span class="note">Gone after 24 hours</span></div>${posts}</section>
-  ${igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(U.ig)}/embed"></iframe>
-    <p class="note">${esc(first)}'s public Instagram. Private accounts do not show, and Instagram may block the preview on some browsers.</p><a class="btn ghost sm" style="text-align:center;text-decoration:none" href="https://www.instagram.com/${encodeURIComponent(U.ig)}/" target="_blank" rel="noopener noreferrer">Open in Instagram</a></section>`
+  ${igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div>${igEmbed(U.ig)}</section>`
     :(U.sample?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="tag">Sample</span></div><div class="ugrid">${[0,1,2,3,4,5].map(i=>`<div class="hpp" style="background:linear-gradient(135deg,hsl(${(hue(U.name||'x')+i*35)%360} 50% 38%),hsl(${(hue(U.name||'x')+i*35+60)%360} 55% 18%));border-color:transparent"></div>`).join('')}</div><p class="note">When ${esc(first)} links an Instagram account, you can scroll it here.</p></section>`:'')}`;
 }
 function sheetUser(){
@@ -1891,7 +1937,7 @@ function sheetDetail(){
   ${h.real?`<button class="btn ghost" data-act="hostpage" data-id="${h.id}">See ${esc(first)}'s page: car, story and Instagram</button>`:''}
   ${fx.length?`<div class="rule">${ic('check',18)}<span>Fits your vibe: ${esc(fx.join(', '))}</span></div>`:''}
   <section class="panel"><div class="row">${plateHTML(h)}<span>${esc(h.color)} ${esc(h.car)}</span></div>
-    <div class="row"><span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'} <span class="muted" style="font-weight:400">${h.trips} rides</span></span><span class="note">Parked ${h.parkM} m from the gate</span></div></section>
+    <div class="row"><span class="rating">${ic('star',14)}${h.rating?h.rating.toFixed(1):'New'}</span><span class="note">Parked ${h.parkM} m from the gate</span></div></section>
   <section class="panel"><div class="row"><h3>In the car</h3><span class="tag crew">${ic('users',13)}${h.crew.length}</span></div>
     <ul class="list">${h.crew.map(c=>`<li class="crewline">${crewAv(c,44,!h.real)}<span style="flex:1;min-width:0"><b>${esc(c[0])}</b><span class="note" style="display:block">${c[2]}, ${c[3]} · ${c[1]}</span></span>${crewBadge(h,c)}</li>`).join('')}</ul>
     <p class="note">${esc(seatsLine(h))}</p></section>
@@ -1903,6 +1949,7 @@ function sheetDetail(){
   <section class="panel"><h3>Your choices</h3>
     ${h.house?`<div class="toggle" style="padding:0"><div><b>Add his place as a stop</b><div class="note">${ic('lock',12)} Area only (${esc(h.house.area)}). The address unlocks after you confirm.</div></div><button class="sw" role="switch" aria-checked="${D.house}" data-act="dhouse"></button></div>`:'<p class="note">He is not offering a stop at his place tonight.</p>'}
     ${friendUI}
+    <div><div class="eyebrow" style="margin-bottom:8px">How are you feeling tonight? (optional)</div><div class="chips">${['Just need a ride home','Up for a hangout','Dinner first','Going with friends'].map(m=>`<button class="chip" data-act="mood" data-v="${m}" aria-pressed="${D.mood===m}">${m}</button>`).join('')}</div><p class="note" style="margin:6px 0 0">${esc(first)} sees this with your request. You can chat before he decides.</p></div>
     <div><div class="eyebrow" style="margin-bottom:8px">Share this plan with</div><div class="chips">${CONTACTS.map(c=>`<button class="chip" data-act="tglc" data-id="${c.id}" aria-pressed="${S.settings.share[c.id]!==false}">${esc(c.name)}</button>`).join('')}</div></div></section>
   <section class="panel"><h3>What ${esc(first)} sees about you</h3>
     <div class="crewline">${meAv(44)}<div style="flex:1;min-width:0"><b>${esc(S.me.name)}, ${S.me.age}</b><div class="note">${meGender()} · ${meTrust()}</div></div></div>
@@ -1910,7 +1957,7 @@ function sheetDetail(){
     <p class="note">Your vibe: ${esc(S.me.vibes.join(', '))}. He never sees your surname, number or address.</p></section>
   ${block?`<p class="note" style="color:var(--bad)">${esc(block)}</p>`:''}
   ${actRow(folBtn(h),igBtn(h))}
-  ${qOpen?`<div class="rule">${ic(q.status==='accepted'?'check':'clock',18)}<span>${q.status==='accepted'?esc(h.name)+' accepted you. Plate: <b>'+esc(q.plate||h.plate||'shown when he is ready')+'</b>. Meet at: '+esc(h.parkDesc)+'.':'Request sent. '+esc(h.name)+' is looking at your profile.'}</span></div>${q.status==='accepted'?`<button class="btn act" data-act="chat" data-id="${q.id}" data-v="${esc(h.name)}">${ic('chat',18)}<span>Message ${esc(h.name)}</span></button>`:''}<button class="btn ghost" data-act="rcancel" data-id="${h.id}">Cancel my request</button>`
+  ${qOpen?`<div class="rule">${ic(q.status==='accepted'?'check':'clock',18)}<span>${q.status==='accepted'?esc(h.name)+' accepted you. Plate: <b>'+esc(q.plate||h.plate||'shown when he is ready')+'</b>. Meet at: '+esc(h.parkDesc)+'.':'Request sent. '+esc(h.name)+' is looking at your profile.'}</span></div>${(q.status==='accepted'||q.status==='pending')?`<button class="btn act" data-act="chat" data-id="${q.id}" data-v="${esc(h.name)}">${ic('chat',18)}<span>${q.status==='pending'?'Chat with '+esc(h.name)+' first':'Message '+esc(h.name)}</span></button>`:''}<button class="btn ghost" data-act="rcancel" data-id="${h.id}">Cancel my request</button>`
     :`<button class="btn" data-act="request" ${block||(h.mine)?'disabled':''}>Request this ride${D.friendOn?' with '+esc(F.name.trim()||'a friend'):''}</button>`}
   <p class="note">${h.real?'He sees your photo, first name, age and vibe. Nothing else.':'Nothing starts until you confirm and both sides pass the pickup photo check.'}</p>`;
 }
@@ -1932,7 +1979,7 @@ function sheetVlog(){
     const P=postsOf(h),cur=P[Math.min(i,P.length-1)];
     const inner=cur?(cur.kind==='image'?`<img id="storyImg" src="${esc(cur.url)}" alt="">`:`<video id="storyVid" playsinline autoplay src="${esc(cur.url)}"></video>`)+(cur.caption?`<div class="scap">${esc(cur.caption)}</div>`:''):`<div class="msg"><p>${esc(h.name)} has nothing in his story right now.</p></div>`;
     const on=isFol(h),canF=h.real&&!h.mine&&SB&&S.auth.user&&!S.socialOff;
-    const foot=`${canF?`<button class="btn ghost ico${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}" aria-label="${on?'Following':'Follow'} ${esc(h.name)}">${ic(on?'check':'userplus',20)}</button>`:''}${(h.real&&igOk(h.ig))?`<button class="btn ghost ico" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',20)}</button>`:''}<button class="btn" style="flex:1" data-act="open" data-id="${h.id}">See the plan</button>`;
+    const foot=`${canF?`<button class="btn ghost ico${on?' on':''}" data-act="follow" data-id="${h.id}" aria-pressed="${on}" aria-label="${followLabel(h.hostUid)} ${esc(h.name)}">${ic(on?'check':'userplus',20)}</button>`:''}${(h.real&&igOk(h.ig))?`<button class="btn ghost ico" data-act="ig" data-id="${h.id}" aria-label="See ${esc(h.name)}'s Instagram">${ic('image',20)}</button>`:''}<button class="btn" style="flex:1" data-act="open" data-id="${h.id}">See the plan</button>`;
     const P2=postsOf(h);
     return `<div class="story"><div class="shd"><div class="sbars">${P2.map((_,j)=>`<div class="sbar"><i ${j<i?'style="width:100%"':''} ${j===i?'id="storyBar"':''}></i></div>`).join('')}</div><div class="shead">${who}<button class="x" data-act="close" aria-label="Close">${ic('x',16)}</button></div></div>
     <div class="svid">${inner}<button class="tapl" data-act="vprev" aria-label="Previous"></button><button class="tapr" data-act="vnext" aria-label="Next"></button></div>
@@ -1990,7 +2037,9 @@ function sheetDone(){
   return `<div class="sheet-h"><div><span class="eyebrow">Trip complete</span><h2>You're home</h2></div><button class="x" data-act="finish" aria-label="Close">${ic('x',16)}</button></div>
   <p class="muted">${kmTxt(t.travelled)} travelled with ${esc(t.host.name)}. How did it go?</p>
   <div class="stars" role="group" aria-label="Rating">${[1,2,3,4,5].map(n=>`<button data-act="star" data-v="${n}" aria-pressed="${S.rating>=n}" aria-label="${n} stars">${ic('star',34)}</button>`).join('')}</div>
-  <p class="note">${esc(t.host.name)} rates you too. Both ratings unlock at the same time, so nobody rates out of fear.</p><button class="btn" data-act="finish">Done</button><button class="btn ghost" data-act="report">Report a problem</button>`;
+  <p class="note">${esc(t.host.name)} rates you too. Both ratings unlock at the same time, so nobody rates out of fear.</p>
+  ${(()=>{const hu=t.host.real&&t.host.hostUid;if(!hu||!SB||!S.auth.user||S.friends.has(hu)||t.fpDone)return '';return S.fol.has(hu)?`<div class="rule">${ic('check',16)}<span>Friend request sent to ${esc(t.host.name)}.</span></div>`:`<section class="panel" style="border-color:var(--accent)"><h3>Are you and ${esc(t.host.name.split(' ')[0])} friends now?</h3><p class="note">Friends can see when each other is nearby and catch up on each other's reels.</p><div class="two"><button class="btn" data-act="folu" data-uid="${esc(hu)}" data-name="${esc(t.host.name)}">Yes, add friend</button><button class="btn ghost" data-act="fpno">Not now</button></div></section>`;})()}
+  <button class="btn" data-act="finish">Done</button><button class="btn ghost" data-act="report">Report a problem</button>`;
 }
 function renderSheet(){
   renderFab();
@@ -2150,6 +2199,7 @@ function act(a,el,ev){
     case 'dfg':S.draft.friend.gender=v;renderSheet();break;
     case 'dfsend':{const f=S.draft.friend;if(!f.name.trim()){toast('Add her first name first');break;}f.sent=true;renderSheet();
       setTimeout(()=>{f.verified=true;if(S.sheet==='detail')renderSheet();toast(f.name+' passed the selfie check (demo)');},1800);break;}
+    case 'mood':S.draft.mood=(S.draft.mood===v)?'':v;renderSheet();break;
     case 'tglc':S.settings.share[id]=S.settings.share[id]===false;S.sheet==='detail'?renderSheet():renderView();break;
     case 'request':if(hostById(S.draft.id).real){sendRealRequest();break;}
       S.req={hostId:S.draft.id,status:'pending',draft:JSON.parse(JSON.stringify(S.draft))};closeSheet();S.tab='trip';renderAll();
@@ -2167,6 +2217,8 @@ function act(a,el,ev){
     case 'hrule':{const a=S.hostDraft.rules,i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);renderView();break;}
     case 'chat':openChat(id,v);break;
     case 'chatsend':sendChat();break;
+    case 'chatcall':sendCall(v);break;
+    case 'chatvn':toggleVN();break;
     case 'rcancel':cancelRealRequest(id);break;
     case 'hracc':decideRequest(id,'accepted');break;
     case 'hrdec':decideRequest(id,'declined');break;
@@ -2189,6 +2241,7 @@ function act(a,el,ev){
     case 'simdev':if(S.trip&&!S.trip.done){S.trip.dev=true;toast('The car is drifting off the route');}break;
     case 'simci':if(S.trip&&!S.trip.done){startCheckin();}break;
     case 'speed':if(S.trip){S.trip.mult=Number(v);renderView();}break;
+    case 'fpno':if(S.trip)S.trip.fpDone=true;renderSheet();break;
     case 'finish':endTrip();break;
     case 'star':S.rating=Number(v);renderSheet();break;
     case 'report':toast('Report started. A reviewer follows up (simulated).');break;
