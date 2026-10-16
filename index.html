@@ -1764,6 +1764,20 @@ async function loadReels(){
       }
     }catch(e){}
   }
+  if(SB&&S.auth.user){
+    try{
+      const er=await SB.rpc('event_reels');
+      if(er&&!er.error&&er.data){
+        const rows=er.data.filter(x=>x&&x.post_id&&x.first_name&&!out.some(o=>o.id==='r_'+x.post_id));
+        if(rows.length){
+          const u=await signVlogs(rows.map(x=>x.path));
+          let ph={};const pp=[...new Set(rows.map(x=>x.photo_path).filter(Boolean))];
+          if(pp.length){try{const a=await SB.storage.from('avatars').createSignedUrls(pp,3600);((a&&a.data)||[]).forEach(z=>{if(z.signedUrl&&z.path)ph[z.path]=z.signedUrl;});}catch(e){}}
+          rows.filter(x=>u[x.path]).forEach(x=>{S.postEv['r_'+x.post_id]=x.event_id;out.push({id:'r_'+x.post_id,uid:x.host_id,name:x.first_name,role:x.role==='host'?'host':'rider',photo:ph[x.photo_path]||null,kind:x.kind,url:u[x.path],caption:x.caption||'',created:x.created_at,expires:x.expires_at});});
+        }
+      }
+    }catch(e){}
+  }
   if(SB&&S.auth.user){try{const q=await SB.from('posts').select('id,event_id').not('event_id','is',null).gt('expires_at',new Date().toISOString());if(q&&!q.error){S.postEv={};(q.data||[]).forEach(x=>{S.postEv['r_'+x.id]=x.event_id;});}}catch(e){}}
   out.sort((a,b)=>new Date(b.created)-new Date(a.created));
   S.reels=out.length>=3?out:[...out,...sampleReels()];
@@ -1953,7 +1967,7 @@ function camRender(){
     const b=CAM.busy?' disabled':'';
     E.innerHTML=`<div class="cam-top"><button class="cbtn" data-act="camretake" aria-label="Discard and retake"${b}>${ic('x',20)}</button><div class="cam-title">${CAM.busy?'Sending…':'Your snap'}</div><span style="width:42px"></span></div>
     <div class="cam-stage">${media}<input class="cam-cap" id="camCap" maxlength="140" placeholder="Add a caption" value="${esc(CAM.cap)}"></div>
-    <div class="cam-bar col"><select class="cam-ev" id="camEv" aria-label="I will be at (optional)"><option value="">I'll be at… (optional)</option>${Object.values(EVENTS).map(e=>`<option value="${esc(e.id)}"${CAM.ev===e.id?' selected':''}>${esc(e.name)} · ${esc(e.venue||'')}</option>`).join('')}</select>
+    <div class="cam-bar col"><select class="cam-ev" id="camEv" aria-label="Who sees this: friends only, or tag an event to show it in Reels for everyone"><option value="">Friends only (tag an event to show in Reels)</option>${Object.values(EVENTS).map(e=>`<option value="${esc(e.id)}"${CAM.ev===e.id?' selected':''}>${esc(e.name)} · ${esc(e.venue||'')}</option>`).join('')}</select>
     <div class="cam-act"><button class="cpill" data-act="camsave"${b}>${ic('download',18)}Save</button><button class="cpill pri" data-act="campost"${b}>${ic('play',18)}Post to Reel</button></div>
     <button class="cpill" data-act="camboth"${b}>Post and save to Memories</button></div>`;
     return;
@@ -2083,7 +2097,7 @@ function sheetCompose(){
   ${C.kind==='image'?`<img class="cmpprev" src="${esc(C.url)}" alt="Preview">`:`<video class="cmpprev" src="${esc(C.url)}#t=0.1" controls playsinline preload="metadata"></video>`}
   <label class="fld" for="cmp-cap">Say something (optional)<input class="inp" id="cmp-cap" maxlength="140" placeholder="Brunch in Osu, heading to Neon Nights later"></label>
   <label class="fld" for="cmp-ev">I'll be at (optional)<select class="inp" id="cmp-ev"><option value="">No event</option>${Object.values(EVENTS).map(e=>`<option value="${esc(e.id)}">${esc(e.name)} · ${esc(e.venue||'')}</option>`).join('')}</select></label>
-  <p class="note">Tag an event and people going to it can find your reel, and you count as going. Only the number going is public.</p>
+  <p class="note">Tag an event and your reel shows in Reels for everyone signed in, and you count as going. Without a tag, only you and people who add you see it.</p>
   <p class="note">Your reel disappears after 24 hours. People who follow you${S.role==='host'?' and riders near your plan':''} can see it.</p>
   <button class="btn" data-act="cmppost">${ic('play',18)}Post reel</button>`;
 }
