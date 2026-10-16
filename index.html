@@ -60,7 +60,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .ptr{position:fixed;left:50%;top:0;z-index:60;width:38px;height:38px;margin-left:-19px;border-radius:50%;background:var(--surface);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;color:var(--accent);opacity:0;pointer-events:none;transform:translateY(-50px)}.ptr svg{width:18px;height:18px}.ptr.spin svg{animation:ptrs .8s linear infinite}@keyframes ptrs{to{transform:rotate(360deg)}}
 .igwrap{position:relative;border-radius:12px;overflow:hidden;background:var(--surface-2)}.igwrap .igframe{display:block}.igload{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;color:var(--ink-2);font-size:13px;pointer-events:none}.igwrap.ok .igload{display:none}.ptr-sp{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:ptrs .8s linear infinite}.igslow{opacity:0;animation:igf .4s 6s forwards}@keyframes igf{to{opacity:1}}
-.view{overscroll-behavior-y:contain;flex:1;min-height:0;overflow:auto;padding:16px 16px 96px;display:flex;flex-direction:column;gap:16px}
+.view{isolation:isolate;overscroll-behavior-y:contain;flex:1;min-height:0;overflow:auto;padding:16px 16px 96px;display:flex;flex-direction:column;gap:16px}
 .view>*{flex:none;width:100%;max-width:1040px;margin-inline:auto}
 .sheet>*{flex:none}
 .tabs{display:grid;grid-template-columns:repeat(var(--n,4),1fr);border-top:1px solid var(--line);background:var(--surface)}
@@ -140,6 +140,33 @@ p{margin:0}
 .thumb.hasv .car{display:none}
 .thumb.hasv::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),transparent 45%,rgba(0,0,0,.25));pointer-events:none}
 .thumb.hasv .tl,.thumb.hasv .tr,.thumb.hasv .play{z-index:2}
+.camov{position:fixed;inset:0;z-index:2000;background:#000;color:#fff;display:flex;flex-direction:column;font-family:inherit}
+.cam-top{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top)) 12px 8px;gap:8px;position:relative;z-index:3}
+.cam-title{font-weight:800;font-size:15px}
+.cbtn{background:rgba(255,255,255,.16);border:0;color:#fff;width:42px;height:42px;border-radius:50%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font:inherit}
+.cbtn.lg{width:58px;height:58px;border-radius:16px;gap:2px;font-size:10px;font-weight:700}
+.cam-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;background:#111;overflow:hidden}
+.cam-stage video,.cam-stage img.cam-m{width:100%;height:100%;object-fit:cover}
+.cam-v.mir{transform:scaleX(-1)}
+.cam-err{padding:24px;text-align:center;color:#ddd;font-size:14px;max-width:320px}
+.cam-bar{display:flex;align-items:center;justify-content:space-around;padding:14px 16px calc(18px + env(safe-area-inset-bottom));gap:12px;position:relative;z-index:3}
+.cam-bar.col{flex-direction:column;align-items:stretch}
+.shutter{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.18);cursor:pointer;touch-action:none;transition:transform .15s,background .15s}
+.shutter.rec{background:#e5372b;transform:scale(1.15);border-color:#fff}
+.cam-hint{margin:0;text-align:center;font-size:12px;color:#bbb;padding-bottom:4px}
+.cam-act{display:flex;gap:8px}
+.cpill{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 14px;border-radius:999px;border:0;background:rgba(255,255,255,.18);color:#fff;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.cpill.pri{background:var(--accent);color:var(--accent-ink)}.cpill[disabled]{opacity:.5}
+.cam-cap{position:absolute;left:12px;right:12px;bottom:14px;background:rgba(0,0,0,.55);border:0;color:#fff;padding:12px 14px;border-radius:12px;font:inherit;font-size:15px;text-align:center}
+.cam-cap::placeholder{color:#ccc}
+.cam-ev{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:12px;padding:11px;font:inherit;font-size:13px}.cam-ev option{color:#000}
+.cam-msg{position:absolute;left:50%;top:70px;transform:translateX(-50%);background:#fff;color:#000;padding:8px 14px;border-radius:999px;font-weight:700;font-size:12px;z-index:5;max-width:90%;text-align:center}
+.rec-t{position:absolute;top:64px;left:50%;transform:translateX(-50%);background:#e5372b;color:#fff;padding:4px 12px;border-radius:999px;font-weight:800;font-size:13px;z-index:4}
+.mem-body{flex:1;overflow:auto;padding:4px 4px 24px}
+.mem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.mem-t{position:relative;aspect-ratio:3/4;background:#222;border:0;padding:0;cursor:pointer;overflow:hidden}
+.mem-t img,.mem-t video{width:100%;height:100%;object-fit:cover;display:block}
+.mem-t span{position:absolute;right:5px;bottom:5px;font-size:10px;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:6px}
 .story{position:absolute;inset:0;background:#000;z-index:60;display:flex;flex-direction:column;color:#fff}
 .story video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .story .shd{flex:none;padding:10px 12px 8px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(#000,#000)}
@@ -438,7 +465,7 @@ const KM=0.02, KMH=30;                       // 40 map units = 0.8 km; city driv
 const $=(s,r)=>(r||document).querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function roleInit(){try{const r=localStorage.getItem('pu_role');return r==='host'||r==='rider'?r:null;}catch(e){return null;}}
-const IC={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/>',userplus:'<circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-7 7-7s7 3 7 7"/><path d="M19 8v6M16 11h6"/>',
+const IC={camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',flip:'<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',trash:'<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/>',userplus:'<circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-7 7-7s7 3 7 7"/><path d="M19 8v6M16 11h6"/>',
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/>',
   check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   car:'<path d="M4 16v-3.5L6 7h12l2 5.5V16"/><path d="M3 16h18v3h-4v-3M7 19v-3"/><path d="M6.5 12.5h.01M17.5 12.5h.01"/>',
@@ -875,11 +902,11 @@ function renderTabs(){
 function renderFab(){
   const el=$('#fab');if(!el)return;
   if(!S.role||S.sheet||S.tab==='safety'||S.tab==='post'){el.innerHTML='';return;}
-  const pick=`<label class="fabopt" style="cursor:pointer">${ic('play',18)}Post to Reels<input type="file" accept="image/*,video/*" data-f="postFile" hidden></label>`;
+  const pick=`<button class="fabopt" data-act="camopen">${ic('camera',18)}Camera</button>`;
   if(S.role==='host'){
     el.innerHTML=(S.fabOpen?`<div class="fabmenu">${pick}<button class="fabopt" data-act="tab" data-v="post">${ic('car',18)}Post a plan</button></div>`:'')+`<button class="fab" data-act="fabtoggle" aria-label="${S.fabOpen?'Close menu':'Create'}" aria-expanded="${!!S.fabOpen}" title="Create" style="${S.fabOpen?'transform:rotate(45deg)':''}">${ic('plus',26)}</button>`;
   }else{
-    el.innerHTML=`<label class="fab" style="cursor:pointer" aria-label="Post to Reels" title="Post to Reels">${ic('plus',26)}<input type="file" accept="image/*,video/*" data-f="postFile" hidden></label>`;
+    el.innerHTML=`<button class="fab" data-act="camopen" aria-label="Open camera" title="Camera">${ic('camera',26)}</button>`;
   }
 }
 function crewLabel(h){const n=h.crew.length;return n===1?'Just him in the car':`${n} in the car`;}
@@ -1105,6 +1132,7 @@ function viewProfile(){
   if(SB&&!S.fcSelf&&A.user){S.fcSelf=true;SB.rpc('follower_counts',{host_ids:[A.user.id]}).then(c=>{((c&&c.data)||[]).forEach(x=>{S.fcounts[x.host_id]=Number(x.n);});if(S.tab==='profile'&&!S.sheet)renderView();}).catch(()=>{});}
   return `${head}
   ${pushCard()}
+  <section class="panel"><div class="row"><h3>Memories</h3><button class="chip" data-act="camopen">${ic('camera',14)} Camera</button><button class="chip" data-act="memopen">${ic('grid',14)} Open Memories</button></div><p class="note">Snaps you save from the camera live here. Only you can see them. Post any back to your reel.</p></section>
   ${myPageHTML()}
   ${host?'':`<section class="panel"><h3>Your drop-off address</h3>
     ${S.dropLL?`<div class="toggle" style="padding:2px 0"><div><b>${esc(S.dropName||'Saved address')}</b><div class="note">Used as the last stop on every plan</div></div><button class="chip" data-act="dropclear">Remove</button></div>`:'<p class="note">Search the area or landmark where you want to be dropped.</p>'}
@@ -1616,7 +1644,7 @@ async function addPost(file,caption,evId){
   try{
     let body=file,ct=file.type;
     if(isI){body=await shrinkImage(file,1600);ct='image/jpeg';}
-    else{if(file.size>45*1024*1024)throw new Error('That video is over 45 MB. Record a shorter clip.');const m=await readVideoMeta(file);if(m.ok&&m.duration>62)throw new Error('Keep videos under 60 seconds.');}
+    else{if(file.size>45*1024*1024)throw new Error('That video is over 45 MB. Record a shorter clip.');const m=await readVideoMeta(file);if(m.ok&&isFinite(m.duration)&&m.duration>62)throw new Error('Keep videos under 60 seconds.');}
     const path=A.user.id+'/p_'+Date.now();
     const up=await SB.storage.from('vlogs').upload(path,body,{contentType:ct||'video/mp4'});
     if(up.error)throw new Error(/mime|type/i.test(up.error.message||'')?'Photos need the step 15 database update.':(up.error.message||'Upload failed'));
@@ -1630,8 +1658,9 @@ async function addPost(file,caption,evId){
     if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Posting needs the step 15 database update.');}
     toast('Posted to Reels. It disappears in 24 hours.');
     await loadMyPosts();await loadLive();S.reelsAt=0;loadReels();
+    S.postBusy=false;renderView();return path;
   }catch(e){toast((e&&e.message)||'Could not post that');}
-  S.postBusy=false;renderView();
+  S.postBusy=false;renderView();return null;
 }
 async function delPost(id){
   const p=(S.myPosts||[]).find(x=>x.id===id);if(!p||!SB)return;
@@ -1875,6 +1904,170 @@ function sheetUser_old(){
   ${car}
   ${U.loading?'<p class="muted">Loading…</p>':(U.posts&&U.posts.length?`<section class="panel"><div class="row"><h3>${isH?'Right now':'Her day'}</h3><span class="note">Gone after 24 hours</span></div><div class="ugrid">${U.posts.map(p=>`<button class="hpp" data-act="userpost" data-rid="${esc(p.id)}" aria-label="Watch post">${p.kind==='image'?`<img src="${esc(p.url)}" alt="" loading="lazy">`:`<video muted playsinline preload="metadata" src="${esc(p.url)}#t=0.5"></video>`}<span>${leftTxt(p.expires)}</span></button>`).join('')}</div></section>`:(U.sample?`<p class="note">${esc(U.caption||'')}</p><p class="note">This is a sample profile. Real people appear here as they join.</p>`:`<p class="note">${esc(first)} has not posted in the last 24 hours.</p>`))}
   ${igOk(U.ig)?`<section class="panel"><div class="row"><h3>Instagram</h3><span class="note">@${esc(U.ig)}</span></div><iframe class="igframe" title="Instagram" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="https://www.instagram.com/${encodeURIComponent(U.ig)}/embed"></iframe></section>`:''}`;
+}
+/* ---------- camera + memories (Snapchat-style capture page) ---------- */
+const CAM={el:null,stream:null,facing:'environment',mode:'cam',rec:null,recT:0,recTick:null,file:null,url:null,kind:null,mem:[],memErr:'',memLoaded:false,view:-1,busy:false,err:'',msg:'',cap:'',ev:''};
+function camMsg(m){CAM.msg=m;const e=CAM.el&&CAM.el.querySelector('.cam-msg');if(e)e.remove();if(!CAM.el)return;const d=document.createElement('div');d.className='cam-msg';d.textContent=m;CAM.el.appendChild(d);setTimeout(()=>d.remove(),2600);}
+function camStop(){if(CAM.stream){CAM.stream.getTracks().forEach(t=>t.stop());CAM.stream=null;}}
+function camClose(){
+  camStop();clearTimeout(CAM.recT);clearInterval(CAM.recTick);
+  if(CAM.rec&&CAM.rec.state!=='inactive'){CAM.rec.onstop=null;try{CAM.rec.stop();}catch(e){}}
+  CAM.rec=null;if(CAM.url){try{URL.revokeObjectURL(CAM.url);}catch(e){}}
+  CAM.url=null;CAM.file=null;CAM.busy=false;CAM.view=-1;
+  if(CAM.el){CAM.el.remove();CAM.el=null;}
+}
+function camOpen(mode){
+  if(!SB||!S.auth.user||!S.auth.profile){toast('Sign in and create your profile first');S.tab='profile';S.fabOpen=false;renderAll();return;}
+  S.fabOpen=false;
+  if(!CAM.el){CAM.el=document.createElement('div');CAM.el.className='camov';CAM.el.setAttribute('role','dialog');CAM.el.setAttribute('aria-label','Camera');document.body.appendChild(CAM.el);}
+  CAM.mode=mode||'cam';CAM.err='';CAM.cap='';CAM.ev='';
+  if(CAM.mode==='memories'){camStop();loadMemories();}
+  camRender();
+  if(CAM.mode==='cam')camStart();
+}
+async function camStart(){
+  camStop();CAM.err='';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.isSecureContext){CAM.err='This browser cannot open the camera here. Choose a photo or video instead.';camRender();return;}
+  try{
+    let st;
+    try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:CAM.facing,width:{ideal:1080},height:{ideal:1920}},audio:true});}
+    catch(e){if(/denied|notallowed/i.test((e.name||'')+(e.message||''))&&!/audio/i.test(e.message||'')){}st=await navigator.mediaDevices.getUserMedia({video:{facingMode:CAM.facing},audio:false});}
+    if(!CAM.el||CAM.mode!=='cam'){st.getTracks().forEach(t=>t.stop());return;}
+    CAM.stream=st;const v=CAM.el.querySelector('video.cam-v');if(v){v.srcObject=st;v.play().catch(()=>{});}
+  }catch(e){CAM.err=/denied|notallowed|permission/i.test((e.name||'')+(e.message||''))?'Allow camera access in your browser settings, or choose a photo or video instead.':'Could not open the camera. Choose a photo or video instead.';camRender();}
+}
+function camRender(){
+  if(!CAM.el)return;
+  const E=CAM.el,m=CAM.mode;
+  if(m==='cam'){
+    E.innerHTML=`<div class="cam-top"><button class="cbtn" data-act="camclose" aria-label="Close camera">${ic('x',20)}</button><div class="cam-title">Capture</div><button class="cbtn" data-act="camflip" aria-label="Flip camera">${ic('flip',20)}</button></div>
+    <div class="cam-stage">${CAM.err?`<div class="cam-err">${esc(CAM.err)}</div>`:`<video class="cam-v${CAM.facing==='user'?' mir':''}" autoplay playsinline muted></video>`}</div>
+    <div class="cam-bar"><button class="cbtn lg" data-act="memopen" aria-label="Memories">${ic('grid',22)}<span>Memories</span></button><button class="shutter" id="camShutter" aria-label="Tap for a photo, hold for a video"></button><label class="cbtn lg" style="cursor:pointer">${ic('image',22)}<span>Upload</span><input type="file" accept="image/*,video/*" data-f="camFile" hidden></label></div>
+    <p class="cam-hint">Tap for a photo. Hold for a video, up to 15 seconds.</p>`;
+    if(CAM.stream){const v=E.querySelector('video.cam-v');if(v){v.srcObject=CAM.stream;v.play().catch(()=>{});}}
+    const sh=E.querySelector('#camShutter');if(sh)camBindShutter(sh);
+    return;
+  }
+  if(m==='review'){
+    const media=CAM.kind==='image'?`<img class="cam-m" src="${esc(CAM.url)}" alt="Your snap">`:`<video class="cam-m" src="${esc(CAM.url)}" autoplay loop muted playsinline controls></video>`;
+    const b=CAM.busy?' disabled':'';
+    E.innerHTML=`<div class="cam-top"><button class="cbtn" data-act="camretake" aria-label="Discard and retake"${b}>${ic('x',20)}</button><div class="cam-title">${CAM.busy?'Sending…':'Your snap'}</div><span style="width:42px"></span></div>
+    <div class="cam-stage">${media}<input class="cam-cap" id="camCap" maxlength="140" placeholder="Add a caption" value="${esc(CAM.cap)}"></div>
+    <div class="cam-bar col"><select class="cam-ev" id="camEv" aria-label="I will be at (optional)"><option value="">I'll be at… (optional)</option>${Object.values(EVENTS).map(e=>`<option value="${esc(e.id)}"${CAM.ev===e.id?' selected':''}>${esc(e.name)} · ${esc(e.venue||'')}</option>`).join('')}</select>
+    <div class="cam-act"><button class="cpill" data-act="camsave"${b}>${ic('download',18)}Save</button><button class="cpill pri" data-act="campost"${b}>${ic('play',18)}Post to Reel</button></div>
+    <button class="cpill" data-act="camboth"${b}>Post and save to Memories</button></div>`;
+    return;
+  }
+  if(m==='memories'){
+    const L=CAM.mem;
+    E.innerHTML=`<div class="cam-top"><button class="cbtn" data-act="memback" aria-label="Back to camera">${ic('camera',20)}</button><div class="cam-title">Memories</div><button class="cbtn" data-act="camclose" aria-label="Close">${ic('x',20)}</button></div>
+    <div class="mem-body">${CAM.memErr?`<p class="cam-err" style="margin:40px auto">${esc(CAM.memErr)}</p>`:!CAM.memLoaded?'<p class="cam-err" style="margin:40px auto">Loading…</p>':L.length?`<div class="mem-grid">${L.map((x,i)=>`<button class="mem-t" data-act="memview" data-i="${i}" aria-label="Open memory">${x.kind==='image'?`<img src="${esc(x.url)}" alt="" loading="lazy">`:`<video src="${esc(x.url)}#t=0.1" preload="metadata" muted playsinline></video><span>Video</span>`}</button>`).join('')}</div>`:`<p class="cam-err" style="margin:40px auto">Nothing saved yet. Snaps you save show up here. Only you can see them, and they stay until you delete them.</p>`}</div>`;
+    return;
+  }
+  if(m==='memview'){
+    const x=CAM.mem[CAM.view];if(!x){CAM.mode='memories';camRender();return;}
+    const media=x.kind==='image'?`<img class="cam-m" src="${esc(x.url)}" alt="Memory">`:`<video class="cam-m" src="${esc(x.url)}" autoplay loop playsinline controls></video>`;
+    const b=CAM.busy?' disabled':'';
+    E.innerHTML=`<div class="cam-top"><button class="cbtn" data-act="memclose" aria-label="Back to Memories">${ic('grid',20)}</button><div class="cam-title">${esc(new Date(x.created_at).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}))}</div><button class="cbtn" data-act="camclose" aria-label="Close">${ic('x',20)}</button></div>
+    <div class="cam-stage">${media}${x.caption?`<div class="cam-cap" style="pointer-events:none">${esc(x.caption)}</div>`:''}</div>
+    <div class="cam-bar col"><div class="cam-act"><button class="cpill" data-act="memdel"${b}>${ic('trash',18)}Delete</button><button class="cpill pri" data-act="mempost"${b}>${ic('play',18)}Post to Reel</button></div></div>`;
+  }
+}
+function camBindShutter(sh){
+  let t0=0,timer=0,recording=false;
+  const mime=()=>{const c=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];return c.find(x=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(x))||'';};
+  const startRec=()=>{
+    if(!CAM.stream||!window.MediaRecorder){camMsg('Video is not supported here. Tap for a photo.');return;}
+    try{
+      const mt=mime(),mr=new MediaRecorder(CAM.stream,mt?{mimeType:mt}:undefined),chunks=[];
+      mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+      mr.onstop=()=>{
+        clearTimeout(CAM.recT);clearInterval(CAM.recTick);const r=CAM.el&&CAM.el.querySelector('.rec-t');if(r)r.remove();
+        const type=(mr.mimeType||mt||'video/webm').split(';')[0];
+        const blob=new Blob(chunks,{type});CAM.rec=null;
+        if(blob.size<2000){camRender();if(CAM.stream){const v=CAM.el.querySelector('video.cam-v');if(v)v.srcObject=CAM.stream;}return;}
+        camReview(new File([blob],'snap.'+(type==='video/mp4'?'mp4':'webm'),{type}),'video');
+      };
+      CAM.rec=mr;mr.start();recording=true;sh.classList.add('rec');
+      const tag=document.createElement('div');tag.className='rec-t';tag.textContent='0:00';CAM.el.appendChild(tag);
+      let sec=0;CAM.recTick=setInterval(()=>{sec++;tag.textContent='0:'+String(sec).padStart(2,'0');},1000);
+      CAM.recT=setTimeout(()=>{if(CAM.rec&&CAM.rec.state!=='inactive')CAM.rec.stop();},15000);
+    }catch(e){camMsg('Could not start recording.');}
+  };
+  const photo=()=>{
+    const v=CAM.el&&CAM.el.querySelector('video.cam-v');if(!v||!v.videoWidth){camMsg('Camera is not ready yet.');return;}
+    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+    c.toBlob(b=>{if(b)camReview(new File([b],'snap.jpg',{type:'image/jpeg'}),'image');},'image/jpeg',0.9);
+  };
+  sh.addEventListener('pointerdown',e=>{e.preventDefault();t0=Date.now();recording=false;timer=setTimeout(startRec,280);try{sh.setPointerCapture(e.pointerId);}catch(x){}});
+  const up=()=>{clearTimeout(timer);if(recording){if(CAM.rec&&CAM.rec.state!=='inactive')CAM.rec.stop();recording=false;sh.classList.remove('rec');}else if(t0){photo();}t0=0;};
+  sh.addEventListener('pointerup',up);sh.addEventListener('pointercancel',()=>{clearTimeout(timer);if(recording&&CAM.rec&&CAM.rec.state!=='inactive')CAM.rec.stop();t0=0;});
+  sh.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function camReview(file,kind){
+  camStop();if(CAM.url){try{URL.revokeObjectURL(CAM.url);}catch(e){}}
+  CAM.file=file;CAM.kind=kind||(/^video\//.test(file.type)?'video':'image');CAM.url=URL.createObjectURL(file);CAM.mode='review';CAM.cap='';CAM.ev='';CAM.busy=false;camRender();
+}
+function camGrab(){const c=document.getElementById('camCap'),e=document.getElementById('camEv');if(c)CAM.cap=c.value;if(e)CAM.ev=e.value;}
+async function loadMemories(){
+  CAM.memErr='';CAM.memLoaded=false;
+  try{
+    const r=await SB.from('memories').select('id,path,kind,caption,created_at').order('created_at',{ascending:false}).limit(90);
+    if(r.error){CAM.memErr=/memories|relation|schema/i.test(r.error.message||'')?'Memories needs the step 21 database update.':'Could not load Memories.';CAM.mem=[];}
+    else{
+      const rows=r.data||[],paths=rows.map(x=>x.path),urls={};
+      if(paths.length){const u=await SB.storage.from('vlogs').createSignedUrls(paths,3600);((u&&u.data)||[]).forEach(z=>{if(z.signedUrl&&z.path)urls[z.path]=z.signedUrl;});}
+      CAM.mem=rows.filter(x=>urls[x.path]).map(x=>({...x,url:urls[x.path]}));
+    }
+  }catch(e){CAM.memErr='Could not load Memories.';}
+  CAM.memLoaded=true;if(CAM.el&&CAM.mode==='memories')camRender();
+}
+async function memStore(fromPath,kind,cap,file){
+  const A=S.auth;const path=A.user.id+'/m_'+Date.now();
+  if(fromPath){const c=await SB.storage.from('vlogs').copy(fromPath,path);if(c.error)throw new Error('Could not save to Memories.');}
+  else{
+    let body=file,ct=file.type;if(kind==='image'){body=await shrinkImage(file,1600);ct='image/jpeg';}
+    const up=await SB.storage.from('vlogs').upload(path,body,{contentType:ct||'video/mp4'});
+    if(up.error)throw new Error('Could not save to Memories.');
+  }
+  const ins=await SB.from('memories').insert({user_id:A.user.id,path,kind,caption:(cap||'').slice(0,140)||null});
+  if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error(/memories|relation|schema/i.test(ins.error.message||'')?'Memories needs the step 21 database update.':'Could not save to Memories.');}
+  CAM.memLoaded=false;
+}
+async function camSend(doPost,doSave){
+  camGrab();if(CAM.busy||!CAM.file)return;
+  CAM.busy=true;camRender();
+  const file=CAM.file,kind=CAM.kind,cap=CAM.cap,ev=CAM.ev;let ok=true,msg='';
+  try{
+    let postPath=null;
+    if(doPost){postPath=await addPost(file,cap,ev);if(!postPath){ok=false;}}
+    if(ok&&doSave){await memStore(postPath,kind,cap,file);}
+    msg=doPost&&doSave?'Posted and saved to Memories':doPost?'Posted to Reels. It disappears in 24 hours.':'Saved to Memories';
+  }catch(e){ok=false;toast((e&&e.message)||'Could not send that');}
+  CAM.busy=false;
+  if(ok){camClose();toast(msg);if(S.tab==='profile')renderView();}
+  else if(CAM.el){camRender();camMsg('Could not finish. Try again.');}
+}
+async function memToReel(){
+  const x=CAM.mem[CAM.view],A=S.auth;if(!x||CAM.busy)return;
+  if((S.myPosts||[]).length>=8){camMsg('You can have up to 8 posts at a time. Delete one first.');return;}
+  CAM.busy=true;camRender();
+  try{
+    const path=A.user.id+'/p_'+Date.now(),c=await SB.storage.from('vlogs').copy(x.path,path);if(c.error)throw new Error('Could not post that.');
+    const ins=await SB.from('posts').insert({host_id:A.user.id,path,kind:x.kind,caption:x.caption||null});
+    if(ins.error){SB.storage.from('vlogs').remove([path]).catch(()=>{});throw new Error('Could not post that.');}
+    await loadMyPosts();loadLive();S.reelsAt=0;loadReels();
+    CAM.busy=false;camClose();toast('Posted to Reels. It disappears in 24 hours.');return;
+  }catch(e){CAM.busy=false;camRender();camMsg((e&&e.message)||'Could not post that.');}
+}
+async function memDelete(){
+  const x=CAM.mem[CAM.view];if(!x||CAM.busy)return;
+  if(!confirm('Delete this memory? This cannot be undone.'))return;
+  CAM.busy=true;camRender();
+  const r=await SB.from('memories').delete().eq('id',x.id);
+  if(r&&r.error){CAM.busy=false;camRender();camMsg('Could not delete.');return;}
+  SB.storage.from('vlogs').remove([x.path]).catch(()=>{});
+  CAM.mem.splice(CAM.view,1);CAM.view=-1;CAM.mode='memories';CAM.busy=false;camRender();
 }
 function openCompose(file){
   if(!file)return;
@@ -2204,6 +2397,19 @@ function act(a,el,ev){
     case 'dfg':S.draft.friend.gender=v;renderSheet();break;
     case 'dfsend':{const f=S.draft.friend;if(!f.name.trim()){toast('Add her first name first');break;}f.sent=true;renderSheet();
       setTimeout(()=>{f.verified=true;if(S.sheet==='detail')renderSheet();toast(f.name+' passed the selfie check (demo)');},1800);break;}
+    case 'camopen':camOpen('cam');break;
+    case 'camclose':camClose();break;
+    case 'camflip':CAM.facing=CAM.facing==='user'?'environment':'user';camRender();camStart();break;
+    case 'camretake':camGrab();if(CAM.url){try{URL.revokeObjectURL(CAM.url);}catch(e){}}CAM.url=null;CAM.file=null;CAM.mode='cam';camRender();camStart();break;
+    case 'camsave':camSend(false,true);break;
+    case 'campost':camSend(true,false);break;
+    case 'camboth':camSend(true,true);break;
+    case 'memopen':camStop();CAM.mode='memories';if(!CAM.el)camOpen('memories');else{if(!CAM.memLoaded)loadMemories();camRender();}break;
+    case 'memback':CAM.mode='cam';camRender();camStart();break;
+    case 'memview':CAM.view=Number(el.dataset.i);CAM.mode='memview';camRender();break;
+    case 'memclose':CAM.mode='memories';CAM.view=-1;camRender();break;
+    case 'mempost':memToReel();break;
+    case 'memdel':memDelete();break;
     case 'mood':S.draft.mood=(S.draft.mood===v)?'':v;renderSheet();break;
     case 'tglc':S.settings.share[id]=S.settings.share[id]===false;S.sheet==='detail'?renderSheet():renderView();break;
     case 'request':if(hostById(S.draft.id).real){sendRealRequest();break;}
@@ -2304,6 +2510,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.datase
   if(f==='verified')S.hostDraft.verified=el.checked;
   else if(f==='vlogFile'){pickVlog(el.files&&el.files[0]);}
   else if(f==='carFile'){const fl=el.files&&el.files[0];el.value='';setCarPhoto(fl);}
+  else if(f==='camFile'){const fl=el.files&&el.files[0];el.value='';if(fl&&(/^image\//.test(fl.type)||/^video\//.test(fl.type)))camReview(fl);else if(fl)camMsg('Pick a photo or a video');}
   else if(f==='postFile'){const fl=el.files&&el.files[0];el.value='';S.fabOpen=false;openCompose(fl);}
   else if(f==='v')S.hostDraft.v=Number(el.value);
   else if(f==='country'){S.hostDraft.country=el.value;S.tm=[];loadTm();renderView();}
