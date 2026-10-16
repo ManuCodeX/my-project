@@ -183,7 +183,7 @@ p{margin:0}
 .ucounts{display:flex;gap:22px;justify-content:center}.ucounts b{display:block;font-size:18px}.ucounts span{font-size:12px;color:var(--ink-2)}
 .ugrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .ugrid .hpp{width:100%}
-.lpin.friend{background:#1769AA;color:#fff;width:32px;height:32px;font-size:13px}
+.lpin.friend{background:#1769AA;color:#fff;width:34px;height:34px;font-size:13px;overflow:hidden}.lpin.friend.ph{border-color:#1769AA;padding:0}.lpin.friend img{width:100%;height:100%;object-fit:cover;display:block}.lpin.house{background:var(--accent);color:var(--accent-ink);width:30px;height:30px}.lpin.event,.lpin.home{width:32px;height:32px}.plabel{background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;font:700 11px/1.2 inherit!important;padding:2px 6px!important;box-shadow:0 1px 4px rgba(0,0,0,.25)!important}.plabel:before{display:none!important}.mlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);padding:2px 2px 0}.mlegend span{display:inline-flex;align-items:center;gap:5px}.mlegend i{width:14px;height:14px;border-radius:50%;display:inline-block}
 .cmpprev{width:100%;max-height:48vh;object-fit:contain;border-radius:14px;background:#000}
 .igp-head{display:flex;align-items:center;gap:18px}
 .igp-stats{flex:1;display:flex;justify-content:space-around;text-align:center}
@@ -712,10 +712,13 @@ function hydrateMaps(){
     if(o.route&&o.route.length>1){const ll=o.route.map(toLL);const c=L.layerGroup().addTo(map);L.polyline(ll,{color:dark?'#000':'#fff',weight:9,opacity:.85,lineCap:'round',lineJoin:'round'}).addTo(c);const line=L.polyline(ll,{color:dark?'#fff':'#111',weight:4,lineCap:'round',lineJoin:'round'}).addTo(c);el._line=line;el._lineBg=c;all.push(...ll);}
     (o.markers||[]).forEach(m=>{
       const ll=m.ll||toLL(m.pos);all.push(ll);
-      if(m.kind==='fuzz'){L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map).bindTooltip(m.label||'Area only');return;}
-      const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}">${m.kind==='park'?(m.count||''):((m.kind==='stop'||m.kind==='friend')?esc(m.glyph||''):'')}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+      if(m.kind==='fuzz'){
+        L.circle(ll,{radius:420,color:acc,weight:1.5,dashArray:'4 4',fillOpacity:.12}).addTo(map);
+        L.marker(ll,{icon:L.divIcon({className:'',html:`<div class="lpin house">${ic('home',15)}</div>`,iconSize:[30,30],iconAnchor:[15,15]}),title:m.label||'His place'}).addTo(map).bindTooltip((m.label||'His place')+' (area only)',{permanent:true,direction:'bottom',offset:[0,12],className:'plabel'});return;}
+      const inner=m.kind==='park'?(m.count||''):m.kind==='friend'?(m.photo?`<img src="${esc(m.photo)}" alt="">`:esc(m.glyph||'')):m.kind==='stop'?esc(m.glyph||''):m.kind==='event'?ic('star',15):m.kind==='home'?ic('home',15):'';
+      const icon=L.divIcon({className:'',html:`<div class="lpin ${m.kind}${m.kind==='friend'&&m.photo?' ph':''}">${inner}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
       const mk=L.marker(ll,{icon,keyboard:true,title:m.aria||m.label||''}).addTo(map);
-      if(m.label&&m.kind!=='you')mk.bindTooltip(m.label,{direction:'top',offset:[0,-12]});
+      if(m.label&&m.kind!=='you'){const perm=['event','home','friend'].includes(m.kind);mk.bindTooltip(m.label,perm?{permanent:true,direction:'bottom',offset:[0,12],className:'plabel'}:{direction:'top',offset:[0,-12]});}
       if(m.hit)mk.on('click',()=>{const b=document.createElement('button');b.dataset.act='open';b.dataset.id=m.hit;document.body.appendChild(b);b.click();b.remove();});
     });
     if(S.myLL){const ll=S.myLL;L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="lpin me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:'You are here'}).addTo(map).bindTooltip('You are here');all.push(ll);}
@@ -1028,9 +1031,10 @@ function viewMap(){
   const centre=S.myLL||ACCRA;
   const real=(S.friendsNear||[]),sampleF=!real.length&&!(SB&&S.auth.user&&S.friends.size);
   const friends=real.length?real:(sampleF?SAMPLE_FRIENDS.map((f,i)=>({id:'sf'+i,name:f[0],ll:[centre[0]+f[1],centre[1]+f[2]],mins:f[3],sample:true})):[]);
-  friends.forEach(f=>markers.push({kind:'friend',glyph:esc((f.name||'?')[0]),ll:f.ll,label:f.name}));
-  Object.values(EVENTS).filter(e=>!e.ghost).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.venue}));
-  const order=['event','friend','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
+  friends.forEach(f=>markers.push({kind:'friend',glyph:(f.name||'?')[0],photo:f.photo||null,ll:f.ll,label:f.name}));
+  if(S.dropLL)markers.push({kind:'home',ll:S.dropLL,label:'Your place'});
+  Object.values(EVENTS).filter(e=>!e.ghost).forEach(e=>markers.push({kind:'event',pos:e.pos,label:e.name+' · '+e.venue}));
+  const order=['event','home','friend','you','park'];markers.sort((a,b)=>order.indexOf(a.kind)-order.indexOf(b.kind));
   const title=host?'Where riders are looking':'Where hosts are parked';
   const sub=host?'The glow shows roughly where riders who opted in are right now. It is rough areas only, never names or exact spots.':'The glow shows where hosts are parked near you. Brighter means more cars. Tap a pin to see the plan.';
   const ping=host?'':`<div class="toggle"><div><b>Let nearby hosts see I'm looking</b><div class="note">Shares a rough area (about 300 m), no name, for 30 minutes at a time. Off by default.</div></div><button class="sw" role="switch" aria-checked="${!!S.pingOn}" data-act="pingtoggle"></button></div>`;
@@ -1042,6 +1046,7 @@ function viewMap(){
   return `<div class="hero"><span class="eyebrow">Live map</span><h2>${title}</h2><p class="muted">${sub}</p></div>
   <div class="split"><div class="map-wrap">${mapAny({box,markers,heat,center:true,aria:title})}</div>
   ${host?'':`<div class="hscroll">${hs.map(h=>`<button class="mini" data-act="open" data-id="${h.id}"><span class="row" style="justify-content:flex-start"><b>${esc(h.name)}</b><span class="tag crew" style="padding:2px 8px">${ic('users',12)}${h.crew.length}</span></span><span class="muted">${esc(h.color)} ${esc(h.car)}</span><span class="muted">Leaving ${esc(h.leaving)}</span></button>`).join('')}</div>`}</div>
+  <div class="mlegend"><span><i style="background:#7A5AF8"></i>Event</span><span><i style="background:#1769AA"></i>Friend (photo)</span><span><i style="background:var(--good)"></i>Your place</span><span><i style="background:var(--accent)"></i>Number = cars parked</span></div>
   ${sampleHeat?`<p class="note">Showing sample activity around Accra until more people join. ${S.heatOff&&host?'Rider heat needs the step 16 database update.':''}</p>`:''}
   ${fl}
   ${ping}${fshare}
